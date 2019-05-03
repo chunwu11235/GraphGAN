@@ -1,0 +1,6 @@
+
+
+print('MCWWW')
+
+
+print('MASTER')
