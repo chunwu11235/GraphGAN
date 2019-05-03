@@ -3,5 +3,4 @@
 print('MCWWW')
 
 
-
-print('conflict')
+print('MASTER')
