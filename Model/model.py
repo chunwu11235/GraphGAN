@@ -1,6 +1,5 @@
 from __future__ import print_function
 from gcmc.layers import *
-
 from gcmc.metrics import softmax_accuracy, expected_rmse, softmax_cross_entropy
 
 flags = tf.app.flags
@@ -197,6 +196,7 @@ class RecommenderGAE(Model):
                                            num_weights=self.num_basis_functions,
                                            logging=self.logging,
                                            diagonal=False))
+
 
 
 class RecommenderSideInfoGAE(Model):
