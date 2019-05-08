@@ -1,6 +1,0 @@
-
-
-print('MCWWW')
-
-
-print('MASTER')
