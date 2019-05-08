@@ -44,50 +44,63 @@ def get_key_value_pair(line_contents, parent_key='', extra_op = False):
 
     return result
 
-def process_restuarant(file_name, column_names):
-    '''
-    return 
-    pd.Dataframe for item features, 
-    vocab for categories[list format],
-    item size
-    '''
     
-    result_df = pd.DataFrame(columns=column_names)
+def restuarant_loader(file_name, item_id_dict):
+    '''
+    load restuarant data
+    192609 rows in full data 
+    flatten all the data in attributes
+    categories: 2468 considering embedding    
+    only consider restuarant with reviews in our data set
+    return 
+        pd.Dataframe for item features, 
+        vocab for categories[list format],
+        item size
+
+    '''
+    column_names = get_superset_of_column_names_from_file(file_name)
+    result_df = {}
     categories = set()
     count = 0
     with open(file_name) as f:
         for line in f:
             line_contents = json.loads(line)
             result = get_key_value_pair(line_contents)
-            sub_df = {column:None  for column in column_names}
-            for k, v in result.items():
-                sub_df[k] = v
-            result_df = result_df.append(pd.DataFrame(sub_df, index= [count]))
-#             if result['categories'] is not None:
-#                 categories.update(set(result['categories'].split(', ')))
-
+            if result['business_id'] in item_id_dict.keys():
+                new_id = item_id_dict[result['business_id']]
+                result['business_id'] = new_id
+                result_df[new_id] = result
             count =count+ 1
     
+    result_df = pd.DataFrame.from_dict(result_df, orient='index', columns=column_names )    
     return result_df, categories, count
+
     
-def user_loader(file_name):
-    result_df = pd.DataFrame()
+
+def user_loader(file_name, user_id_dict):
+    result_df = {}
     count = 0
     with open(file_name) as f:
         for line in f:
             line_contents = json.loads(line)
-            sub_result = get_key_value_pair(line_contents)
-            del sub_result['friends']
-            sub_result['elite'] = len(sub_result['elite'].split(',')) if sub_result['elite'] != ""  else 0
-            result_df = result_df.append(pd.DataFrame(sub_result, index= [count]))
+            result = get_key_value_pair(line_contents)
+            
+            if result['user_id'] in user_id_dict.keys():
+                del result['friends']
+                new_id = user_id_dict[result['user_id']]
+                result['elite'] = len(result['elite'].split(',')) if result['elite'] != ""  else 0
+                result['user_id'] = new_id
+                result_df[new_id] = result            
             count = count+ 1
 
+    result_df = pd.DataFrame.from_dict(result_df, orient='index')    
+            
     return result_df, count 
     
 
 def remapping(ori_ids):
     '''
-    Give new indices from old_id
+    Give new indices from 
     '''
     uniq_id = set(ori_ids)
 
@@ -105,34 +118,23 @@ def create_test_file(file, nline = 10000):
         for line in data:
             f.write(line)
 
-def restuarant_loader(file_name):
-    '''
-    load restuarant data
-    192609 rows in full data 
-    flatten all the data in attributes
-    categories: 2468 considering embedding    
-    only consider restuarant with reviews in our data set
-    return: pd.DF for restuarant and different vocabulary_list
-    '''
-    column_names = get_superset_of_column_names_from_file(file_name)
-    return process_restuarant(file_name, column_names)
-
 
 def data_loading(file_dir, verbose = False, test= False):
     '''
     preliminary data parsing, and save to another file
     '''
     
-    
-    output_file_names = ['u_features.pkl','v_features.pkl', 'new_reviews.npy', 'miscellany.pkl']
+    output_file_names = ['u_features.hdf','v_features.hdf', 'new_reviews.npy', 'miscellany.pkl']
     if test:
         output_file_names = ['test'+i for i in output_file_names]
     output_file_names = [file_dir+i for i in output_file_names]
     
     if output_file_names[0] in os.listdir(file_dir):
-        u_features = pd.read_pickle(output_file_names[0])
-        v_features = pd.read_pickle(output_file_names[1])
+        
+        u_features = pd.read_hdf(output_file_names[0],'mydata')
+        v_features = pd.read_hdf(output_file_names[1],'mydata')
         new_reviews = np.load(output_file_names[2])
+        
         with open(new_reviews, 'rb') as handle:
             miscellany =  pickle.load(handle)
 
@@ -145,30 +147,35 @@ def data_loading(file_dir, verbose = False, test= False):
     else:
         file_list = [file_dir + i + '.json' for i in ['business', 'review', 'user']]
         
-    
-    #item_column_names = get_superset_of_column_names_from_file(file_list[0])
-    v_features, food_category, num_v =  restuarant_loader(file_list[0])
-    
-    u_features, num_u  = user_loader(file_list[2])
-    
+       
     file_name = file_dir + "review_test.json"
     data = pd.read_json(file_name, lines=True)
 
-    new_item_ids, item_id_dict, num_item = remapping(data['business_id'].as_matrix().astype(np.string_))
-    new_user_ids, user_id_dict, num_user = remapping(data['user_id'].as_matrix().astype(np.string_))
+    new_item_ids, item_id_dict, num_item = remapping(data['business_id'].values)
+    new_user_ids, user_id_dict, num_user = remapping(data['user_id'].values)
     
     
-    u_features['user_id'] = u_features['user_id'].apply(lambda x: user_id_dict[x] if x in user_id_dict.keys() else None)
-    v_features['business_id'] = v_features['business_id'].apply(lambda x: item_id_dict[x] if x in item_id_dict.keys() else None)
+    v_features, food_category, num_v =  restuarant_loader(file_list[0], item_id_dict)
+    u_features, num_u  = user_loader(file_list[2], user_id_dict)
+            
+#     mapped_u_features = {}
+#     for uid in u_features['user_id']:  
+#     u_features['user_id'] = u_features['user_id'].apply(lambda x: user_id_dict[x] if x in user_id_dict.keys() else None)
+#     v_features['business_id'] = v_features['business_id'].apply(lambda x: item_id_dict[x] if x in item_id_dict.keys() else None)
     
-    u_features = u_features[~u_features['user_id'].isnull()]
-    v_features = v_features[~v_features['business_id'].isnull()]
+#     u_features = u_features[~u_features['user_id'].isnull()]
+#     v_features = v_features[~v_features['business_id'].isnull()]
         
-    u_features.to_pickle(output_file_names[0])
-    v_features.to_pickle(output_file_names[1])
+
+    ## fix with large size of file
+#     df.to_hdf('my_filename.hdf','mydata',mode='w')
+#     df = pd.read_hdf('my_filename.hdf','mydata')
+    
+    u_features.to_hdf(output_file_names[0],'mydata',mode='w')
+    v_features.to_hdf(output_file_names[1],'mydata',mode='w')
     
     
-    new_reviews = np.stack([new_item_ids, new_user_ids, data['stars'].as_matrix().astype(np.int32)], axis = 0)
+    new_reviews = np.stack([new_item_ids, new_user_ids, data['stars'].values], axis = 1)
     
     np.save(output_file_names[2], new_reviews)
     
@@ -193,9 +200,4 @@ if __name__ =='__main__':
         for file in ['business', 'review', 'user']:
             create_test_file(file_dir + file)
     
-    u_features, v_features, new_reviews, miscellany = data_loading(file_dir, verbose = False, test = True)
-
-
-
-
-
+    a, b, c, d = data_loading(file_dir, verbose = False, test = True)
