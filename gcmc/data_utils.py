@@ -3,7 +3,16 @@ import pandas as pd
 import os
 import json
 import pickle
+import sys
 from itertools import islice
+from collections import defaultdict
+
+
+def clear_datafiles(file_dir):
+    for file_n in os.listdir(file_dir):
+        if '.pkl' in file_n or '.npy' in file_n or '.hdf' in file_n:
+            os.remove(os.path.join(file_dir, file_n))
+
 
 
 def get_superset_of_column_names_from_file(json_file_path):
@@ -18,6 +27,18 @@ def get_superset_of_column_names_from_file(json_file_path):
     return list(column_names)
 
 
+def strip(value):
+
+    if type(value) == str:
+        if len(value) == 0:
+            return None
+        if value[-1] == "'":
+            if value[0] == 'u':
+                value = value[2:-1]
+            else:
+                value = value[1:-1]
+            
+    return value 
 
 def get_key_value_pair(line_contents, parent_key='', extra_op = False):
     """
@@ -27,9 +48,9 @@ def get_key_value_pair(line_contents, parent_key='', extra_op = False):
     for k, v in line_contents.items():
         column_name = "{0}.{1}".format(parent_key, k) if parent_key else k
         
-        if k == 'attributes':
-            if v is None:
+        if v is None:
                 continue
+        if k == 'attributes':
             sub_result = get_key_value_pair(v, extra_op = True)
             result.update(sub_result)
         else:
@@ -38,7 +59,8 @@ def get_key_value_pair(line_contents, parent_key='', extra_op = False):
                 v = json.loads(v)
                 sub_result = get_key_value_pair(v, parent_key = column_name)
                 result.update(sub_result)
-            else:
+            elif v != 'None':
+                v =  strip(v)
                 result.update({column_name:v})
     
 
@@ -61,19 +83,36 @@ def restuarant_loader(file_name, item_id_dict):
     column_names = get_superset_of_column_names_from_file(file_name)
     result_df = {}
     categories = set()
+    business_vocab_list = defaultdict(set)
     count = 0
+    
+    useless_feat_list = ['address','business_id','city','hours','is_open',
+    'latitude','longitude','name','postal_code','state']
     with open(file_name) as f:
         for line in f:
             line_contents = json.loads(line)
             result = get_key_value_pair(line_contents)
             if result['business_id'] in item_id_dict.keys():
+                
+                for col in result.keys():
+                    if col== 'categories':
+                        business_vocab_list[col].update(set(result['categories'].split(', ')))
+                        continue
+                        
+                    if col not in useless_feat_list and result[col] is not None:
+                        business_vocab_list[col].add(result[col])
+                
                 new_id = item_id_dict[result['business_id']]
                 result['business_id'] = new_id
                 result_df[new_id] = result
             count =count+ 1
     
-    result_df = pd.DataFrame.from_dict(result_df, orient='index', columns=column_names )    
-    return result_df, categories, count
+    result_vocab= {}
+    for feat in business_vocab_list.keys():
+        result_vocab[feat] = list(business_vocab_list[feat])
+    
+    result_df = pd.DataFrame.from_dict(result_df, orient='index', columns=column_names)    
+    return result_df, result_vocab, count
 
     
 
@@ -88,7 +127,7 @@ def user_loader(file_name, user_id_dict):
             if result['user_id'] in user_id_dict.keys():
                 del result['friends']
                 new_id = user_id_dict[result['user_id']]
-                result['elite'] = len(result['elite'].split(',')) if result['elite'] != ""  else 0
+                result['elite'] = len(result['elite'].split(',')) if result['elite'] is not None else 0
                 result['user_id'] = new_id
                 result_df[new_id] = result            
             count = count+ 1
@@ -127,55 +166,48 @@ def data_loading(file_dir, verbose = False, test= False):
     output_file_names = ['u_features.hdf','v_features.hdf', 'new_reviews.npy', 'miscellany.pkl']
     if test:
         output_file_names = ['test'+i for i in output_file_names]
-    output_file_names = [file_dir+i for i in output_file_names]
+    
+    
     
     if output_file_names[0] in os.listdir(file_dir):
         
+        output_file_names = [file_dir+i for i in output_file_names]
         u_features = pd.read_hdf(output_file_names[0],'mydata')
         v_features = pd.read_hdf(output_file_names[1],'mydata')
         new_reviews = np.load(output_file_names[2])
         
-        with open(new_reviews, 'rb') as handle:
+        with open(output_file_names[3], 'rb') as handle:
             miscellany =  pickle.load(handle)
 
         return u_features, v_features, new_reviews, miscellany
-        
+
+    
+    output_file_names = [file_dir+i for i in output_file_names]
+            
     
     file_list = [] 
+    
+    print("Re-process the full files")
     if test:
         file_list = [file_dir + i + '.json' for i in ['business_test', 'review_test', 'user_test']]
     else:
         file_list = [file_dir + i + '.json' for i in ['business', 'review', 'user']]
         
        
-    file_name = file_dir + "review_test.json"
-    data = pd.read_json(file_name, lines=True)
+    data = pd.read_json(file_list[1], lines=True)
 
     new_item_ids, item_id_dict, num_item = remapping(data['business_id'].values)
     new_user_ids, user_id_dict, num_user = remapping(data['user_id'].values)
     
     
-    v_features, food_category, num_v =  restuarant_loader(file_list[0], item_id_dict)
+    v_features, business_vocab_list, num_v =  restuarant_loader(file_list[0], item_id_dict)
     u_features, num_u  = user_loader(file_list[2], user_id_dict)
-            
-#     mapped_u_features = {}
-#     for uid in u_features['user_id']:  
-#     u_features['user_id'] = u_features['user_id'].apply(lambda x: user_id_dict[x] if x in user_id_dict.keys() else None)
-#     v_features['business_id'] = v_features['business_id'].apply(lambda x: item_id_dict[x] if x in item_id_dict.keys() else None)
-    
-#     u_features = u_features[~u_features['user_id'].isnull()]
-#     v_features = v_features[~v_features['business_id'].isnull()]
-        
-
-    ## fix with large size of file
-#     df.to_hdf('my_filename.hdf','mydata',mode='w')
-#     df = pd.read_hdf('my_filename.hdf','mydata')
     
     u_features.to_hdf(output_file_names[0],'mydata',mode='w')
     v_features.to_hdf(output_file_names[1],'mydata',mode='w')
     
     
-    new_reviews = np.stack([new_item_ids, new_user_ids, data['stars'].values], axis = 1)
+    new_reviews = np.stack([new_user_ids, new_item_ids, data['stars'].values], axis = 1)
     
     np.save(output_file_names[2], new_reviews)
     
@@ -186,6 +218,7 @@ def data_loading(file_dir, verbose = False, test= False):
     miscellany['num_v'] = num_user
     miscellany['item_id_dict'] = item_id_dict
     miscellany['user_id_dict'] = user_id_dict
+    miscellany['business_vocab_list'] = business_vocab_list
 
     with open(output_file_names[3], 'wb') as handle:
         pickle.dump(miscellany, handle, protocol=pickle.HIGHEST_PROTOCOL) 
@@ -200,4 +233,4 @@ if __name__ =='__main__':
         for file in ['business', 'review', 'user']:
             create_test_file(file_dir + file)
     
-    a, b, c, d = data_loading(file_dir, verbose = False, test = True)
+    u_features, v_features, new_reviews, miscellany = data_loading(file_dir, verbose = False, test = False)
