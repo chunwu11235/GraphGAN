@@ -14,6 +14,12 @@ def clear_datafiles(file_dir):
             os.remove(os.path.join(file_dir, file_n))
 
 
+def get_useless_item_feat_list():
+    return ['address','business_id','hours','is_open','latitude','longitude','name','postal_code','state']
+
+def get_useless_user_feat_list():
+    return  ['name', 'yelping_since', 'user_id']
+
 
 def get_superset_of_column_names_from_file(json_file_path):
     """Read in the json dataset file and return the superset of column names."""
@@ -86,8 +92,7 @@ def restuarant_loader(file_name, item_id_dict):
     business_vocab_list = defaultdict(set)
     count = 0
     
-    useless_feat_list = ['address','business_id','city','hours','is_open',
-    'latitude','longitude','name','postal_code','state']
+    useless_feat_list = get_useless_item_feat_list()
     with open(file_name) as f:
         for line in f:
             line_contents = json.loads(line)
@@ -111,7 +116,12 @@ def restuarant_loader(file_name, item_id_dict):
     for feat in business_vocab_list.keys():
         result_vocab[feat] = list(business_vocab_list[feat])
     
+
     result_df = pd.DataFrame.from_dict(result_df, orient='index', columns=column_names)    
+    for feat in useless_feat_list:
+        result_df.drop(feat, axis = 1, inplace= True)
+        
+    
     return result_df, result_vocab, count
 
     
@@ -119,6 +129,8 @@ def restuarant_loader(file_name, item_id_dict):
 def user_loader(file_name, user_id_dict):
     result_df = {}
     count = 0
+    
+    useless_feat_list = get_useless_user_feat_list()
     with open(file_name) as f:
         for line in f:
             line_contents = json.loads(line)
@@ -133,7 +145,9 @@ def user_loader(file_name, user_id_dict):
             count = count+ 1
 
     result_df = pd.DataFrame.from_dict(result_df, orient='index')    
-            
+    for feat in useless_feat_list:
+        result_df.drop(feat, axis = 1, inplace= True)
+        
     return result_df, count 
     
 
@@ -157,6 +171,21 @@ def create_test_file(file, nline = 10000):
         for line in data:
             f.write(line)
 
+def compute_col_mapper(vocab_list):
+    '''
+    Compute mapper for sparse tensor for embedding layer
+    '''
+    col_mapper = {}
+
+    for feat in ['categories', 'city']:
+        count = 0
+        col_mapper[feat] = {}
+        for k in vocab_list[feat]:
+            col_mapper[feat][k] = count
+            count+=1         
+    
+    return col_mapper
+    
 
 def data_loading(file_dir, verbose = False, test= False):
     '''
@@ -203,8 +232,10 @@ def data_loading(file_dir, verbose = False, test= False):
     v_features, business_vocab_list, num_v =  restuarant_loader(file_list[0], item_id_dict)
     u_features, num_u  = user_loader(file_list[2], user_id_dict)
     
+    
     u_features.to_hdf(output_file_names[0],'mydata',mode='w')
     v_features.to_hdf(output_file_names[1],'mydata',mode='w')
+    
     
     
     new_reviews = np.stack([new_user_ids, new_item_ids, data['stars'].values], axis = 1)
@@ -214,12 +245,12 @@ def data_loading(file_dir, verbose = False, test= False):
     miscellany = {}
     miscellany['num_item'] = num_item
     miscellany['num_user'] = num_user
-    miscellany['num_u'] = num_user
-    miscellany['num_v'] = num_user
     miscellany['item_id_dict'] = item_id_dict
     miscellany['user_id_dict'] = user_id_dict
     miscellany['business_vocab_list'] = business_vocab_list
-
+    miscellany['col_mapper'] =  compute_col_mapper(miscellany['business_vocab_list'])
+    
+    
     with open(output_file_names[3], 'wb') as handle:
         pickle.dump(miscellany, handle, protocol=pickle.HIGHEST_PROTOCOL) 
 
