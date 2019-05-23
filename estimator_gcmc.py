@@ -13,9 +13,13 @@ import numpy as np
 
 
 def gcmc_model_fn(features, labels, mode, params):
+
+
+
     # TODO: input and convolution layer
     user_features = features['user_features']
     item_features = features['item_features']
+
 
     x_user = tf.feature_column.input_layer(user_features, params['user_features_columns'])
     x_user_conv_1 = tf.feature_column.input_layer(user_features_conv_1, params['user_features_columns'])
@@ -31,24 +35,6 @@ def gcmc_model_fn(features, labels, mode, params):
     x_item_conv_4 = tf.feature_column.input_layer(item_features_conv_4, params['user_features_columns'])
     x_item_conv_5 = tf.feature_column.input_layer(item_features_conv_5, params['user_features_columns'])
 
-
-
-
-    # for testing
-    params = { 'hidden units': [1, 1],
-               'dropout': 0.1,
-               'classes': 2,
-               'learning rate': 0.001}
-
-    user_features = tf.constant( [[1,0,0],[0,1,0],[0,0,1]], dtype=tf.float32)
-
-    item_features = tf.constant([[1, 0, 0], [0, 1, 0], [0, 0, 1]], dtype=tf.float32)
-
-    user_conv = [tf.constant( [[1,0,0],[0,1,0],[0,0,1]], dtype=tf.float32),
-                 tf.constant( [[1,0,0],[0,1,0],[0,0,1]], dtype=tf.float32)]
-
-    item_conv = [tf.constant( [[1,0,0],[0,1,0],[0,0,1]], dtype=tf.float32),
-                 tf.constant( [[1,0,0],[0,1,0],[0,0,1]], dtype=tf.float32)]
 
     """
     Layers at first level
@@ -76,7 +62,6 @@ def gcmc_model_fn(features, labels, mode, params):
     h_user = tf.concat(h_user, axis=1)
     h_user = tf.layers.dropout(h_user, rate=params['dropout'])
 
-
     # item features
     f_item = tf.layers.dense(item_features,
                              units=params['hidden units'][0],
@@ -84,7 +69,6 @@ def gcmc_model_fn(features, labels, mode, params):
                              kernel_initializer=tf.glorot_normal_initializer(),
                              use_bias=True
                              )
-
     f_item = tf.layers.dropout(f_item, rate=params['dropout'])
 
     # item convolution
@@ -132,15 +116,9 @@ def gcmc_model_fn(features, labels, mode, params):
     item_embedding = tf.nn.relu(f_item + h_item)
 
 
-
-    init_op = tf.global_variables_initializer()
-    sess = tf.Session()
-    sess.run(init_op)
-
     """
     decoder
     """
-    # TODO: DEBUG!!!!!
     dim = params['hidden units'][1]
 
     weights_decoder = []
@@ -148,23 +126,23 @@ def gcmc_model_fn(features, labels, mode, params):
         for i in range(params['classes']):
             weights = tf.get_variable(name='decoder' + str(i),
                                       shape=[dim, dim],
-                                      trainable=True
-                                      # initializer=tf.glorot_normal_initializer()
+                                      trainable=True,
+                                      initializer=tf.glorot_normal_initializer()
                                       )
             weights_decoder.append(weights)
 
-    logits = np.zeros(params['classes'])
-    # TODO: debug this !!!!!!!!!!!!!!!!
+    logits = []
     for i, kernel in enumerate(weights_decoder):
         uQ = tf.matmul(user_embedding, kernel)
-        uQv = tf.matmul(uQ, tf.transpose(item_embedding))
-        logits[i] = uQv
+        uQv = tf.reduce_sum(tf.multiply(uQ, item_embedding), axis=1)
+        logits.append(uQv)
+    logits = tf.stack(logits, axis=1)
 
 
 
-
-
-    # TODO: check
+    """
+    construct estimator
+    """
     # Compute predictions.
     predicted_classes = tf.argmax(logits, 1)
     if mode == tf.estimator.ModeKeys.PREDICT:
@@ -192,58 +170,13 @@ def gcmc_model_fn(features, labels, mode, params):
     # Create training op.
     assert mode == tf.estimator.ModeKeys.TRAIN
 
-    optimizer = tf.train.AdagradOptimizer(learning_rate=0.1)
-    train_op = optimizer.minimize(loss, global_step=tf.train.get_global_step())
-    return tf.estimator.EstimatorSpec(mode, loss=loss, train_op=train_op)
-
-
-
-
-
-
-
-def my_model(features, labels, mode, params):
-    """DNN with three hidden layers and learning_rate=0.1."""
-    # Create three fully connected layers.
-    net = tf.feature_column.input_layer(features, params['feature_columns'])
-    for units in params['hidden_units']:
-        net = tf.layers.dense(net, units=units, activation=tf.nn.relu)
-
-    # Compute logits (1 per class).
-    logits = tf.layers.dense(net, params['n_classes'], activation=None)
-
-    # Compute predictions.
-    predicted_classes = tf.argmax(logits, 1)
-    if mode == tf.estimator.ModeKeys.PREDICT:
-        predictions = {
-            'class_ids': predicted_classes[:, tf.newaxis],
-            'probabilities': tf.nn.softmax(logits),
-            'logits': logits,
-        }
-        return tf.estimator.EstimatorSpec(mode, predictions=predictions)
-
-    # Compute loss.
-    loss = tf.losses.sparse_softmax_cross_entropy(labels=labels, logits=logits)
-
-    # Compute evaluation metrics.
-    accuracy = tf.metrics.accuracy(labels=labels,
-                                   predictions=predicted_classes,
-                                   name='acc_op')
-    metrics = {'accuracy': accuracy}
-    tf.summary.scalar('accuracy', accuracy[1])
-
-    if mode == tf.estimator.ModeKeys.EVAL:
-        return tf.estimator.EstimatorSpec(
-            mode, loss=loss, eval_metric_ops=metrics)
-
-    # Create training op.
-    assert mode == tf.estimator.ModeKeys.TRAIN
-
-    # TODO: use Adam
+    # use Adam
     # optimizer = tf.train.AdagradOptimizer(learning_rate=0.1)
     optimizer = tf.train.AdamOptimizer(params['learning rate'])
     train_op = optimizer.minimize(loss, global_step=tf.train.get_global_step())
+
     return tf.estimator.EstimatorSpec(mode, loss=loss, train_op=train_op)
+
 
 
 
@@ -309,6 +242,50 @@ def my_model(features, labels, mode, params):
 #                               100 * probability, expec))
 #
 #
+
+def test_gcmc_model_fn():
+    # for testing
+    params = { 'hidden units': [1, 1],
+               'dropout': 0.1,
+               'classes': 2,
+               'learning rate': 0.001}
+
+    user_features = tf.constant([[1, 0, 0],
+                                 [0, 1, 0],
+                                 [0, 0, 1]],
+                                dtype=tf.float32)
+
+    item_features = tf.constant([[1, 0, 0],
+                                 [0, 1, 0],
+                                 [0, 0, 1]],
+                                dtype=tf.float32)
+
+    user_conv = [tf.constant([[1, 0, 0],
+                              [0, 1, 0],
+                              [0, 0, 1]],
+                             dtype=tf.float32),
+                 tf.constant([[1, 0, 0],
+                              [0, 1, 0],
+                              [0, 0, 1]],
+                             dtype=tf.float32)]
+
+    item_conv = [tf.constant([[1, 0, 0],
+                              [0, 1, 0],
+                              [0, 0, 1]],
+                             dtype=tf.float32),
+                 tf.constant([[1, 0, 0],
+                              [0, 1, 0],
+                              [0, 0, 1]],
+                             dtype=tf.float32)]
+
+
+    init_op = tf.global_variables_initializer()
+    sess = tf.Session()
+    sess.run(init_op)
+
+
+
+
 # if __name__ == '__main__':
 #     tf.logging.set_verbosity(tf.logging.INFO)
 #     tf.app.run(main)
