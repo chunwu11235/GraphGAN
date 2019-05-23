@@ -33,6 +33,19 @@ def gcmc_model_fn(features, labels, mode, params):
 
 
 
+
+    # for testing
+    params = { 'hidden units':[1,1], 'dropout':0.1, 'classes':2 }
+    user_features = tf.constant( [[1,0,0],[0,1,0],[0,0,1]], dtype=tf.float32)
+
+    item_features = tf.constant([[1, 0, 0], [0, 1, 0], [0, 0, 1]], dtype=tf.float32)
+
+    user_conv = [tf.constant( [[1,0,0],[0,1,0],[0,0,1]], dtype=tf.float32),
+                 tf.constant( [[1,0,0],[0,1,0],[0,0,1]], dtype=tf.float32)]
+
+    item_conv = [tf.constant( [[1,0,0],[0,1,0],[0,0,1]], dtype=tf.float32),
+                 tf.constant( [[1,0,0],[0,1,0],[0,0,1]], dtype=tf.float32)]
+
     """
     Layers at first level
     """
@@ -40,7 +53,7 @@ def gcmc_model_fn(features, labels, mode, params):
     f_user = tf.layers.dense(user_features,
                              units=params['hidden units'][0],
                              activation=tf.nn.relu,
-                             kernel_initializer=tf.glorot_normal_initializer,
+                             kernel_initializer=tf.glorot_normal_initializer(),
                              use_bias=True
                              )
     f_user = tf.layers.dropout(f_user, rate=params['dropout'])
@@ -51,7 +64,7 @@ def gcmc_model_fn(features, labels, mode, params):
         h_u = tf.layers.dense(u,
                               units=params['hidden units'][0],
                               activation=tf.nn.relu,
-                              kernel_initializer=tf.glorot_normal_initializer,
+                              kernel_initializer=tf.glorot_normal_initializer(),
                               use_bias=False
                               )
         h_u = tf.layers.dropout(h_u, rate=params['dropout'])
@@ -64,7 +77,7 @@ def gcmc_model_fn(features, labels, mode, params):
     f_item = tf.layers.dense(item_features,
                              units=params['hidden units'][0],
                              activation=tf.nn.relu,
-                             kernel_initializer=tf.glorot_normal_initializer,
+                             kernel_initializer=tf.glorot_normal_initializer(),
                              use_bias=True
                              )
 
@@ -76,7 +89,7 @@ def gcmc_model_fn(features, labels, mode, params):
         h_v = tf.layers.dense(v,
                               units=params['hidden units'][0],
                               activation=tf.nn.relu,
-                              kernel_initializer=tf.glorot_normal_initializer,
+                              kernel_initializer=tf.glorot_normal_initializer(),
                               use_bias=False
                               )
         h_v = tf.layers.dropout(h_v, rate=params['dropout'])
@@ -91,12 +104,12 @@ def gcmc_model_fn(features, labels, mode, params):
     f_user = tf.layers.dense(f_user,
                              units=params['hidden units'][1],
                              activation=None,
-                             kernel_initializer=tf.glorot_normal_initializer,
+                             kernel_initializer=tf.glorot_normal_initializer(),
                              use_bias=False
                              )
     h_user = tf.layers.dense(h_user,
                              units=params['hidden units'][1],
-                             kernel_initializer=tf.glorot_normal_initializer,
+                             kernel_initializer=tf.glorot_normal_initializer(),
                              use_bias=False
                              )
     user_embedding = tf.nn.relu(f_user + h_user)
@@ -104,20 +117,26 @@ def gcmc_model_fn(features, labels, mode, params):
     f_item = tf.layers.dense(f_item,
                              units=params['hidden units'][1],
                              activation=None,
-                             kernel_initializer=tf.glorot_normal_initializer,
+                             kernel_initializer=tf.glorot_normal_initializer(),
                              use_bias=False
                              )
     h_item = tf.layers.dense(h_item,
                              units=params['hidden units'][1],
-                             kernel_initializer=tf.glorot_normal_initializer,
+                             kernel_initializer=tf.glorot_normal_initializer(),
                              use_bias=False
                              )
     item_embedding = tf.nn.relu(f_item + h_item)
 
 
+
+    init_op = tf.global_variables_initializer()
+    sess = tf.Session()
+    sess.run(init_op)
+
     """
     decoder
     """
+    # TODO: DEBUG!!!!!
     dim = params['hidden units'][1]
 
     weights_decoder = []
@@ -125,20 +144,23 @@ def gcmc_model_fn(features, labels, mode, params):
         for i in range(params['classes']):
             weights = tf.get_variable(name='decoder' + str(i),
                                       shape=[dim, dim],
-                                      trainable=True,
-                                      initializer=tf.glorot_normal_initializer()
+                                      trainable=True
+                                      # initializer=tf.glorot_normal_initializer()
                                       )
             weights_decoder.append(weights)
 
-    logit = np.zeros(params['classes'])
+    logits = np.zeros(params['classes'])
+    # TODO: debug this !!!!!!!!!!!!!!!!
     for i, kernel in enumerate(weights_decoder):
         uQ = tf.matmul(user_embedding, kernel)
         uQv = tf.matmul(uQ, tf.transpose(item_embedding))
-        logit[i] = uQv
+        logits[i] = uQv
 
-    output = tf.nn.softmax(logit)
 
-    # TODO:
+
+
+
+    # TODO: check
     # Compute predictions.
     predicted_classes = tf.argmax(logits, 1)
     if mode == tf.estimator.ModeKeys.PREDICT:
@@ -213,9 +235,13 @@ def my_model(features, labels, mode, params):
     # Create training op.
     assert mode == tf.estimator.ModeKeys.TRAIN
 
+    # TODO: use Adam
     optimizer = tf.train.AdagradOptimizer(learning_rate=0.1)
     train_op = optimizer.minimize(loss, global_step=tf.train.get_global_step())
     return tf.estimator.EstimatorSpec(mode, loss=loss, train_op=train_op)
+
+
+
 
 
 def main(argv):
