@@ -35,7 +35,11 @@ def gcmc_model_fn(features, labels, mode, params):
 
 
     # for testing
-    params = { 'hidden units':[1,1], 'dropout':0.1, 'classes':2 }
+    params = { 'hidden units': [1, 1],
+               'dropout': 0.1,
+               'classes': 2,
+               'learning rate': 0.001}
+
     user_features = tf.constant( [[1,0,0],[0,1,0],[0,0,1]], dtype=tf.float32)
 
     item_features = tf.constant([[1, 0, 0], [0, 1, 0], [0, 0, 1]], dtype=tf.float32)
@@ -236,7 +240,8 @@ def my_model(features, labels, mode, params):
     assert mode == tf.estimator.ModeKeys.TRAIN
 
     # TODO: use Adam
-    optimizer = tf.train.AdagradOptimizer(learning_rate=0.1)
+    # optimizer = tf.train.AdagradOptimizer(learning_rate=0.1)
+    optimizer = tf.train.AdamOptimizer(params['learning rate'])
     train_op = optimizer.minimize(loss, global_step=tf.train.get_global_step())
     return tf.estimator.EstimatorSpec(mode, loss=loss, train_op=train_op)
 
@@ -244,64 +249,67 @@ def my_model(features, labels, mode, params):
 
 
 
-def main(argv):
-    args = parser.parse_args(argv[1:])
 
-    # Fetch the data
-    (train_x, train_y), (test_x, test_y) = iris_data.load_data()
-
-    # Feature columns describe how to use the input.
-    my_feature_columns = []
-    for key in train_x.keys():
-        my_feature_columns.append(tf.feature_column.numeric_column(key=key))
-
-    # Build 2 hidden layer DNN with 10, 10 units respectively.
-    classifier = tf.estimator.Estimator(
-        model_fn=my_model,
-        params={
-            'feature_columns': my_feature_columns,
-            # Two hidden layers of 10 nodes each.
-            'hidden_units': [10, 10],
-            # The model must choose between 3 classes.
-            'n_classes': 3,
-        })
-
-    # Train the Model.
-    classifier.train(
-        input_fn=lambda:iris_data.train_input_fn(train_x, train_y, args.batch_size),
-        steps=args.train_steps)
-
-    # Evaluate the model.
-    eval_result = classifier.evaluate(
-        input_fn=lambda:iris_data.eval_input_fn(test_x, test_y, args.batch_size))
-
-    print('\nTest set accuracy: {accuracy:0.3f}\n'.format(**eval_result))
-
-    # Generate predictions from the model
-    expected = ['Setosa', 'Versicolor', 'Virginica']
-    predict_x = {
-        'SepalLength': [5.1, 5.9, 6.9],
-        'SepalWidth': [3.3, 3.0, 3.1],
-        'PetalLength': [1.7, 4.2, 5.4],
-        'PetalWidth': [0.5, 1.5, 2.1],
-    }
-
-    predictions = classifier.predict(
-        input_fn=lambda:iris_data.eval_input_fn(predict_x,
-                                                labels=None,
-                                                batch_size=args.batch_size))
-
-    for pred_dict, expec in zip(predictions, expected):
-        template = ('\nPrediction is "{}" ({:.1f}%), expected "{}"')
-
-        class_id = pred_dict['class_ids'][0]
-        probability = pred_dict['probabilities'][class_id]
-
-        print(template.format(iris_data.SPECIES[class_id],
-                              100 * probability, expec))
-
-
-if __name__ == '__main__':
-    tf.logging.set_verbosity(tf.logging.INFO)
-    tf.app.run(main)
-
+#
+#
+# def main(argv):
+#     args = parser.parse_args(argv[1:])
+#
+#     # Fetch the data
+#     (train_x, train_y), (test_x, test_y) = iris_data.load_data()
+#
+#     # Feature columns describe how to use the input.
+#     my_feature_columns = []
+#     for key in train_x.keys():
+#         my_feature_columns.append(tf.feature_column.numeric_column(key=key))
+#
+#     # Build 2 hidden layer DNN with 10, 10 units respectively.
+#     classifier = tf.estimator.Estimator(
+#         model_fn=my_model,
+#         params={
+#             'feature_columns': my_feature_columns,
+#             # Two hidden layers of 10 nodes each.
+#             'hidden_units': [10, 10],
+#             # The model must choose between 3 classes.
+#             'n_classes': 3,
+#         })
+#
+#     # Train the Model.
+#     classifier.train(
+#         input_fn=lambda:iris_data.train_input_fn(train_x, train_y, args.batch_size),
+#         steps=args.train_steps)
+#
+#     # Evaluate the model.
+#     eval_result = classifier.evaluate(
+#         input_fn=lambda:iris_data.eval_input_fn(test_x, test_y, args.batch_size))
+#
+#     print('\nTest set accuracy: {accuracy:0.3f}\n'.format(**eval_result))
+#
+#     # Generate predictions from the model
+#     expected = ['Setosa', 'Versicolor', 'Virginica']
+#     predict_x = {
+#         'SepalLength': [5.1, 5.9, 6.9],
+#         'SepalWidth': [3.3, 3.0, 3.1],
+#         'PetalLength': [1.7, 4.2, 5.4],
+#         'PetalWidth': [0.5, 1.5, 2.1],
+#     }
+#
+#     predictions = classifier.predict(
+#         input_fn=lambda:iris_data.eval_input_fn(predict_x,
+#                                                 labels=None,
+#                                                 batch_size=args.batch_size))
+#
+#     for pred_dict, expec in zip(predictions, expected):
+#         template = ('\nPrediction is "{}" ({:.1f}%), expected "{}"')
+#
+#         class_id = pred_dict['class_ids'][0]
+#         probability = pred_dict['probabilities'][class_id]
+#
+#         print(template.format(iris_data.SPECIES[class_id],
+#                               100 * probability, expec))
+#
+#
+# if __name__ == '__main__':
+#     tf.logging.set_verbosity(tf.logging.INFO)
+#     tf.app.run(main)
+#
