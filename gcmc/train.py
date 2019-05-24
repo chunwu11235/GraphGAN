@@ -6,7 +6,7 @@ import functools
 import sys
 import numpy as np
 
-def main():
+def main(argu):
     tf.logging.set_verbosity(tf.logging.INFO)
     
     run_config=tf.estimator.RunConfig(
@@ -16,7 +16,7 @@ def main():
 
     
     #file_dir = '/Users/Dreamland/Documents/University_of_Washington/STAT548/project/GraphGAN/yelp_dataset/'
-
+    file_dir = 'yelp_dataset'
     adj_mat_list, user_norm, item_norm,\
                 u_features_tensor_dict, v_features_tensor_dict, new_reviews, miscellany,\
                 N, num_train, num_val, num_test, train_idx, val_idx, test_idx = preprocessing(file_dir, verbose=True, test= True)
@@ -104,9 +104,6 @@ if __name__ == "__main__":
     flags.DEFINE_integer('dim_user_embedding', 30,
                          "Number of observations in a sample")
     flags.DEFINE_integer('dim_item_embedding', 30,
-                         "Number of observations in a sample")
-
-    flags.DEFINE_integer('batch_size', 1024,
                          "Number of observations in a sample")
     #directory of various files
     flags.DEFINE_string('model_dir', 'tmp/',
