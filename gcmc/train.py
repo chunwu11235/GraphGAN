@@ -23,18 +23,7 @@ def main():
 
     
     # TODO: check
-    model_params = tf.contrib.training.HParams(
-    batch_size=FLAGS.batch_size,
-    learning_rate=FLAGS.batch_size,
-    dim_user_raw=FLAGS.dim_user_raw,
-    dim_item_raw=FLAGS.dim_item_raw,
-    dim_user_conv=FLAGS.dim_user_conv,
-    dim_item_conv=FLAGS.dim_item_conv,
-    dim_user_embedding=FLAGS.dim_user_embedding,
-    dim_item_embedding=FLAGS.dim_item_embedding,
-    classes=FLAGS.classes,
-    dropout=FLAGS.dropout)
-    
+   
     
     item_type_dict = {k:v.dtype for k, v in v_features_tensor_dict.items()}
     item_feature_columns = get_item_feature_columns(miscellany['business_vocab_list'], item_type_dict)
@@ -45,6 +34,22 @@ def main():
     input_additional_info = {}
     for name in ['adj_mat_list', 'user_norm', 'item_norm', 'new_reviews', 'num_train', 'num_val','num_test', 'train_idx', 'val_idx', 'test_idx']:
         exec("input_additional_info[{0!r}] = {0}".format(name))
+    
+    model_params = tf.contrib.training.HParams(
+    batch_size=FLAGS.batch_size,
+    learning_rate=FLAGS.batch_size,
+    dim_user_raw=FLAGS.dim_user_raw,
+    dim_item_raw=FLAGS.dim_item_raw,
+    dim_user_conv=FLAGS.dim_user_conv,
+    dim_item_conv=FLAGS.dim_item_conv,
+    dim_user_embedding=FLAGS.dim_user_embedding,
+    dim_item_embedding=FLAGS.dim_item_embedding,
+    classes=FLAGS.classes,
+    dropout=FLAGS.dropout,
+    user_features_columns = user_feature_columns,
+    item_features_columns = item_feature_columns)
+    
+    
     
     input_fn=  get_input_fn(tf.estimator.ModeKeys.TRAIN, model_params, **input_additional_info)
     

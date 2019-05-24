@@ -50,13 +50,16 @@ import tensorflow as tf
 # sess.run(init_op)
 
 
-def get_gcmc_model_fn(user_features_all, item_features_all):
+def get_gcmc_model_fn(model_additional_info):
+    
+    user_features_all = model_additional_info['u_features']
+    item_features_all = model_additional_info['v_features']
 
     def gcmc_model_fn(features, labels, mode, params):
         user_features_all = tf.feature_column.input_layer(user_features_all,
-                                                          params['user_features_columns'])
+                                                          params.user_features_columns)
         item_features_all = tf.feature_column.input_layer(item_features_all,
-                                                          params['item_features_columns'])
+                                                          params.item_features_columns)
 
 
         """
@@ -85,77 +88,77 @@ def get_gcmc_model_fn(user_features_all, item_features_all):
         """
         # user features
         f_user = tf.layers.dense(user_features_batch,
-                                 units=params['dim_user_raw'],
+                                 units=params.dim_user_raw,
                                  activation=tf.nn.relu,
                                  kernel_initializer=tf.glorot_normal_initializer(),
                                  use_bias=True
                                  )
-        f_user = tf.layers.dropout(f_user, rate=params['dropout'])
+        f_user = tf.layers.dropout(f_user, rate=params.dropout)
 
         # user convolutions
         # TODO: weight sharing
         h_user = []
         for u in user_conv:
             h_u = tf.layers.dense(u,
-                                  units=params['dim_user_conv'],
+                                  units=params.dim_user_conv,
                                   activation=tf.nn.relu,
                                   kernel_initializer=tf.glorot_normal_initializer(),
                                   use_bias=False
                                   )
-            h_u = tf.layers.dropout(h_u, rate=params['dropout'])
+            h_u = tf.layers.dropout(h_u, rate=params.dropout)
             h_user.append(h_u)
         h_user = tf.concat(h_user, axis=1)
-        h_user = tf.layers.dropout(h_user, rate=params['dropout'])
+        h_user = tf.layers.dropout(h_user, rate=params.dropout)
 
         # item features
         f_item = tf.layers.dense(item_features_batch,
-                                 units=params['dim_item_raw'],
+                                 units=params.dim_item_raw,
                                  activation=tf.nn.relu,
                                  kernel_initializer=tf.glorot_normal_initializer(),
                                  use_bias=True
                                  )
-        f_item = tf.layers.dropout(f_item, rate=params['dropout'])
+        f_item = tf.layers.dropout(f_item, rate=params.dropout)
 
         # item convolution
         h_item = []
         # TODO: weight sharing
         for v in item_conv:
             h_v = tf.layers.dense(v,
-                                  units=params['dim_item_conv'],
+                                  units=params.dim_item_conv,
                                   activation=tf.nn.relu,
                                   kernel_initializer=tf.glorot_normal_initializer(),
                                   use_bias=False
                                   )
-            h_v = tf.layers.dropout(h_v, rate=params['dropout'])
+            h_v = tf.layers.dropout(h_v, rate=params.dropout)
             h_item.append(h_v)
         h_item = tf.concat(h_item, axis=1)
-        h_item = tf.layers.dropout(h_item, rate=params['dropout'])
+        h_item = tf.layers.dropout(h_item, rate=params.dropout)
 
 
         """
         Layers at second level
         """
         f_user = tf.layers.dense(f_user,
-                                 units=params['user_embedding'],
+                                 units=params.user_embedding,
                                  activation=None,
                                  kernel_initializer=tf.glorot_normal_initializer(),
                                  use_bias=False
                                  )
         h_user = tf.layers.dense(h_user,
-                                 units=params['user_embedding'],
+                                 units=params.user_embedding,
                                  kernel_initializer=tf.glorot_normal_initializer(),
                                  use_bias=False
                                  )
         user_embedding = tf.nn.relu(f_user + h_user)
 
         f_item = tf.layers.dense(f_item,
-                                 units=params['item_embedding'],
+                                 units=paramsitem_embedding,
                                  activation=None,
                                  kernel_initializer=tf.glorot_normal_initializer(),
                                  use_bias=False
                                  )
         h_item = tf.layers.dense(h_item,
-                                 units=params['item_embedding'],
+                                 units=params.item_embedding,
                                  kernel_initializer=tf.glorot_normal_initializer(),
                                  use_bias=False
                                  )
@@ -169,7 +172,7 @@ def get_gcmc_model_fn(user_features_all, item_features_all):
         dim = params['hidden units'][1]
         weights_decoder = []
         with tf.variable_scope('decoder'):
-            for i in range(params['classes']):
+            for i in range(params.classes):
                 weights = tf.get_variable(name='decoder' + str(i),
                                           shape=[dim, dim],
                                           trainable=True,
@@ -219,7 +222,7 @@ def get_gcmc_model_fn(user_features_all, item_features_all):
 
         # use Adam
         # optimizer = tf.train.AdagradOptimizer(learning_rate=0.1)
-        optimizer = tf.train.AdamOptimizer(params['learning_rate'])
+        optimizer = tf.train.AdamOptimizer(params.learning_rate)
         train_op = optimizer.minimize(loss, global_step=tf.train.get_global_step())
 
         return tf.estimator.EstimatorSpec(mode, loss=loss, train_op=train_op)
