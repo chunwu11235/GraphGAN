@@ -16,8 +16,8 @@ def main(argv):
             save_summary_steps=100)
 
     
-    file_dir = '/Users/Dreamland/Documents/University_of_Washington/STAT548/project/GraphGAN/yelp_dataset/'
-    #file_dir = 'yelp_dataset/'
+    # file_dir = '/Users/Dreamland/Documents/University_of_Washington/STAT548/project/GraphGAN/yelp_dataset/'
+    file_dir = 'yelp_dataset/'
     adj_mat_list, user_norm, item_norm,\
                 u_features, v_features, new_reviews, miscellany,\
                 N, num_train, num_val, num_test, train_idx, val_idx, test_idx = preprocessing(file_dir, verbose=True, test= True)

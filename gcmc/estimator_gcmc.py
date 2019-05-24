@@ -52,15 +52,34 @@ import tensorflow as tf
 
 
 def gcmc_model_fn(features, labels, mode, params):
+    labels -= 1
     
-    user_features_all = features['u_features']
-    item_features_all = features['v_features']
-    user_features_all = tf.feature_column.input_layer(user_features_all,
-                                                      params.user_features_columns)
-    item_features_all = tf.feature_column.input_layer(item_features_all,
-                                                      params.item_features_columns)
-    tf.cast(user_features_all, tf.float64)
-    tf.cast(item_features_batch, tf.float64)
+    # user_features_all = features['u_features']
+    # item_features_all = features['v_features']
+    #
+    #
+    #
+    # user_features_all = tf.feature_column.input_layer(user_features_all,
+    #                                                   params.user_features_columns)
+    # item_features_all = tf.feature_column.input_layer(item_features_all,
+    #                                                   params.item_features_columns)
+
+
+    user_features_all = tf.constant(1, shape=[9366, 18], dtype=tf.float64)
+    item_features_all = tf.constant(1, shape=[4618, 175], dtype=tf.float64)
+
+    user_features_all = tf.cast(user_features_all, tf.float64)
+    item_features_all = tf.cast(item_features_all, tf.float64)
+
+    # print(features.keys())
+    #
+    # for key in features:
+    #     print(key, features[key].shape)
+
+    # print(user_features_all.shape)(763, 18)
+    # print(item_features_all.shape)(2415, 175)
+
+
 
     """
     batch
@@ -139,26 +158,26 @@ def gcmc_model_fn(features, labels, mode, params):
     Layers at second level
     """
     f_user = tf.layers.dense(f_user,
-                             units=params.user_embedding,
+                             units=params.dim_user_embedding,
                              activation=None,
                              kernel_initializer=tf.glorot_normal_initializer(),
                              use_bias=False
                              )
     h_user = tf.layers.dense(h_user,
-                             units=params.user_embedding,
+                             units=params.dim_user_embedding,
                              kernel_initializer=tf.glorot_normal_initializer(),
                              use_bias=False
                              )
     user_embedding = tf.nn.relu(f_user + h_user)
 
     f_item = tf.layers.dense(f_item,
-                             units=params.item_embedding,
+                             units=params.dim_item_embedding,
                              activation=None,
                              kernel_initializer=tf.glorot_normal_initializer(),
                              use_bias=False
                              )
     h_item = tf.layers.dense(h_item,
-                             units=params.item_embedding,
+                             units=params.dim_item_embedding,
                              kernel_initializer=tf.glorot_normal_initializer(),
                              use_bias=False
                              )
@@ -172,8 +191,9 @@ def gcmc_model_fn(features, labels, mode, params):
     with tf.variable_scope('decoder'):
         for i in range(params.classes):
             weights = tf.get_variable(name='decoder' + str(i),
-                                      shape=[params.user_embedding,
-                                             params.item_embedding],
+                                      shape=[params.dim_user_embedding,
+                                             params.dim_item_embedding],
+                                      dtype=tf.float64,
                                       trainable=True,
                                       initializer=tf.glorot_normal_initializer()
                                       )
