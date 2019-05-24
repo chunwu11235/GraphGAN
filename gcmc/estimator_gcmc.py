@@ -4,7 +4,6 @@ from __future__ import print_function
 
 import tensorflow as tf
 
-
 # TODO: params? what parameters do we need?
 
 #
@@ -52,181 +51,177 @@ import tensorflow as tf
 
 
 
-def get_gcmc_model_fn(**model_additional_info):
+def gcmc_model_fn(features, labels, mode, params):
     
-    user_features_all = model_additional_info['u_features']
-    item_features_all = model_additional_info['v_features']
-
-    def gcmc_model_fn(features, labels, mode, params):
-        user_features_all = tf.feature_column.input_layer(user_features_all,
-                                                          params.user_features_columns)
-        item_features_all = tf.feature_column.input_layer(item_features_all,
-                                                          params.item_features_columns)
+    user_features_all = features['u_features']
+    item_features_all = features['v_features']
+    user_features_all = tf.feature_column.input_layer(user_features_all,
+                                                      params.user_features_columns)
+    item_features_all = tf.feature_column.input_layer(item_features_all,
+                                                      params.item_features_columns)
 
 
-        """
-        batch
-        """
-        user_features_batch = tf.sparse.matmul(features['user_id'],
-                                               user_features_all)
-        item_features_batch = tf.sparse.matmul(features['item_id'],
-                                               item_features_all)
+    """
+    batch
+    """
+    user_features_batch = tf.sparse.matmul(features['user_id'],
+                                           user_features_all)
+    item_features_batch = tf.sparse.matmul(features['item_id'],
+                                           item_features_all)
 
-        """convolution"""
-        item_conv = []
-        user_conv = []
-        for star in range(params.classes):
-            # TODO: node dropout
-            item_conv.append(tf.sparse.matmul(features['item_neigh_conv{}'.format(star)],
-                             user_features_all)
+    """convolution"""
+    item_conv = []
+    user_conv = []
+    for star in range(params.classes):
+        # TODO: node dropout
+        item_conv.append(tf.sparse.matmul(features['item_neigh_conv{}'.format(star)],
+                         user_features_all)
+                         )
+        user_conv.append(tf.sparse.matmul(features['user_neigh_conv{}'.format(star)],
+                         item_features_all)
+                         )
+
+
+    """
+    Layers at first level
+    """
+    # user features
+    f_user = tf.layers.dense(user_features_batch,
+                             units=params.dim_user_raw,
+                             activation=tf.nn.relu,
+                             kernel_initializer=tf.glorot_normal_initializer(),
+                             use_bias=True
                              )
-            user_conv.append(tf.sparse.matmul(features['user_neigh_conv{}'.format(star)],
-                             item_features_all)
+    f_user = tf.layers.dropout(f_user, rate=params.dropout)
+
+    # user convolutions
+    # TODO: weight sharing
+    h_user = []
+    for u in user_conv:
+        h_u = tf.layers.dense(u,
+                              units=params.dim_user_conv,
+                              activation=tf.nn.relu,
+                              kernel_initializer=tf.glorot_normal_initializer(),
+                              use_bias=False
+                              )
+        h_u = tf.layers.dropout(h_u, rate=params.dropout)
+        h_user.append(h_u)
+    h_user = tf.concat(h_user, axis=1)
+    h_user = tf.layers.dropout(h_user, rate=params.dropout)
+
+    # item features
+    f_item = tf.layers.dense(item_features_batch,
+                             units=params.dim_item_raw,
+                             activation=tf.nn.relu,
+                             kernel_initializer=tf.glorot_normal_initializer(),
+                             use_bias=True
                              )
+    f_item = tf.layers.dropout(f_item, rate=params.dropout)
+
+    # item convolution
+    h_item = []
+    # TODO: weight sharing
+    for v in item_conv:
+        h_v = tf.layers.dense(v,
+                              units=params.dim_item_conv,
+                              activation=tf.nn.relu,
+                              kernel_initializer=tf.glorot_normal_initializer(),
+                              use_bias=False
+                              )
+        h_v = tf.layers.dropout(h_v, rate=params.dropout)
+        h_item.append(h_v)
+    h_item = tf.concat(h_item, axis=1)
+    h_item = tf.layers.dropout(h_item, rate=params.dropout)
 
 
-        """
-        Layers at first level
-        """
-        # user features
-        f_user = tf.layers.dense(user_features_batch,
-                                 units=params.dim_user_raw,
-                                 activation=tf.nn.relu,
-                                 kernel_initializer=tf.glorot_normal_initializer(),
-                                 use_bias=True
-                                 )
-        f_user = tf.layers.dropout(f_user, rate=params.dropout)
+    """
+    Layers at second level
+    """
+    f_user = tf.layers.dense(f_user,
+                             units=params.user_embedding,
+                             activation=None,
+                             kernel_initializer=tf.glorot_normal_initializer(),
+                             use_bias=False
+                             )
+    h_user = tf.layers.dense(h_user,
+                             units=params.user_embedding,
+                             kernel_initializer=tf.glorot_normal_initializer(),
+                             use_bias=False
+                             )
+    user_embedding = tf.nn.relu(f_user + h_user)
 
-        # user convolutions
-        # TODO: weight sharing
-        h_user = []
-        for u in user_conv:
-            h_u = tf.layers.dense(u,
-                                  units=params.dim_user_conv,
-                                  activation=tf.nn.relu,
-                                  kernel_initializer=tf.glorot_normal_initializer(),
-                                  use_bias=False
-                                  )
-            h_u = tf.layers.dropout(h_u, rate=params.dropout)
-            h_user.append(h_u)
-        h_user = tf.concat(h_user, axis=1)
-        h_user = tf.layers.dropout(h_user, rate=params.dropout)
-
-        # item features
-        f_item = tf.layers.dense(item_features_batch,
-                                 units=params.dim_item_raw,
-                                 activation=tf.nn.relu,
-                                 kernel_initializer=tf.glorot_normal_initializer(),
-                                 use_bias=True
-                                 )
-        f_item = tf.layers.dropout(f_item, rate=params.dropout)
-
-        # item convolution
-        h_item = []
-        # TODO: weight sharing
-        for v in item_conv:
-            h_v = tf.layers.dense(v,
-                                  units=params.dim_item_conv,
-                                  activation=tf.nn.relu,
-                                  kernel_initializer=tf.glorot_normal_initializer(),
-                                  use_bias=False
-                                  )
-            h_v = tf.layers.dropout(h_v, rate=params.dropout)
-            h_item.append(h_v)
-        h_item = tf.concat(h_item, axis=1)
-        h_item = tf.layers.dropout(h_item, rate=params.dropout)
+    f_item = tf.layers.dense(f_item,
+                             units=params.item_embedding,
+                             activation=None,
+                             kernel_initializer=tf.glorot_normal_initializer(),
+                             use_bias=False
+                             )
+    h_item = tf.layers.dense(h_item,
+                             units=params.item_embedding,
+                             kernel_initializer=tf.glorot_normal_initializer(),
+                             use_bias=False
+                             )
+    item_embedding = tf.nn.relu(f_item + h_item)
 
 
-        """
-        Layers at second level
-        """
-        f_user = tf.layers.dense(f_user,
-                                 units=params.user_embedding,
-                                 activation=None,
-                                 kernel_initializer=tf.glorot_normal_initializer(),
-                                 use_bias=False
-                                 )
-        h_user = tf.layers.dense(h_user,
-                                 units=params.user_embedding,
-                                 kernel_initializer=tf.glorot_normal_initializer(),
-                                 use_bias=False
-                                 )
-        user_embedding = tf.nn.relu(f_user + h_user)
+    """
+    decoder
+    """
+    weights_decoder = []
+    with tf.variable_scope('decoder'):
+        for i in range(params.classes):
+            weights = tf.get_variable(name='decoder' + str(i),
+                                      shape=[params.user_embedding,
+                                             params.item_embedding],
+                                      trainable=True,
+                                      initializer=tf.glorot_normal_initializer()
+                                      )
+            weights_decoder.append(weights)
 
-        f_item = tf.layers.dense(f_item,
-                                 units=params.item_embedding,
-                                 activation=None,
-                                 kernel_initializer=tf.glorot_normal_initializer(),
-                                 use_bias=False
-                                 )
-        h_item = tf.layers.dense(h_item,
-                                 units=params.item_embedding,
-                                 kernel_initializer=tf.glorot_normal_initializer(),
-                                 use_bias=False
-                                 )
-        item_embedding = tf.nn.relu(f_item + h_item)
+    logits = []
+    kernel = 0
+    for i, weight in enumerate(weights_decoder):
+        kernel += weight
+        uQ = tf.matmul(user_embedding, kernel)
+        uQv = tf.reduce_sum(tf.multiply(uQ, item_embedding), axis=1)
+        logits.append(uQv)
+    logits = tf.stack(logits, axis=1)
 
 
-        """
-        decoder
-        """
-        weights_decoder = []
-        with tf.variable_scope('decoder'):
-            for i in range(params.classes):
-                weights = tf.get_variable(name='decoder' + str(i),
-                                          shape=[params.user_embedding,
-                                                 params.item_embedding],
-                                          trainable=True,
-                                          initializer=tf.glorot_normal_initializer()
-                                          )
-                weights_decoder.append(weights)
+    """
+    construct estimator
+    """
+    # Compute predictions.
+    predicted_classes = tf.argmax(logits, 1)
+    if mode == tf.estimator.ModeKeys.PREDICT:
+        predictions = {
+            'class_ids': predicted_classes[:, tf.newaxis],
+            'probabilities': tf.nn.softmax(logits),
+            'logits': logits,
+        }
+        return tf.estimator.EstimatorSpec(mode, predictions=predictions)
 
-        logits = []
-        kernel = 0
-        for i, weight in enumerate(weights_decoder):
-            kernel += weight
-            uQ = tf.matmul(user_embedding, kernel)
-            uQv = tf.reduce_sum(tf.multiply(uQ, item_embedding), axis=1)
-            logits.append(uQv)
-        logits = tf.stack(logits, axis=1)
+    # Compute loss.
+    loss = tf.losses.sparse_softmax_cross_entropy(labels=labels, logits=logits)
 
+    # Compute evaluation metrics.
+    accuracy = tf.metrics.accuracy(labels=labels,
+                                   predictions=predicted_classes,
+                                   name='acc_op')
+    metrics = {'accuracy': accuracy}
+    tf.summary.scalar('accuracy', accuracy[1])
 
-        """
-        construct estimator
-        """
-        # Compute predictions.
-        predicted_classes = tf.argmax(logits, 1)
-        if mode == tf.estimator.ModeKeys.PREDICT:
-            predictions = {
-                'class_ids': predicted_classes[:, tf.newaxis],
-                'probabilities': tf.nn.softmax(logits),
-                'logits': logits,
-            }
-            return tf.estimator.EstimatorSpec(mode, predictions=predictions)
+    if mode == tf.estimator.ModeKeys.EVAL:
+        return tf.estimator.EstimatorSpec(
+            mode, loss=loss, eval_metric_ops=metrics)
 
-        # Compute loss.
-        loss = tf.losses.sparse_softmax_cross_entropy(labels=labels, logits=logits)
+    # Create training op.
+    assert mode == tf.estimator.ModeKeys.TRAIN
 
-        # Compute evaluation metrics.
-        accuracy = tf.metrics.accuracy(labels=labels,
-                                       predictions=predicted_classes,
-                                       name='acc_op')
-        metrics = {'accuracy': accuracy}
-        tf.summary.scalar('accuracy', accuracy[1])
+    # use Adam
+    # optimizer = tf.train.AdagradOptimizer(learning_rate=0.1)
+    optimizer = tf.train.AdamOptimizer(params.learning_rate)
+    train_op = optimizer.minimize(loss, global_step=tf.train.get_global_step())
 
-        if mode == tf.estimator.ModeKeys.EVAL:
-            return tf.estimator.EstimatorSpec(
-                mode, loss=loss, eval_metric_ops=metrics)
-
-        # Create training op.
-        assert mode == tf.estimator.ModeKeys.TRAIN
-
-        # use Adam
-        # optimizer = tf.train.AdagradOptimizer(learning_rate=0.1)
-        optimizer = tf.train.AdamOptimizer(params.learning_rate)
-        train_op = optimizer.minimize(loss, global_step=tf.train.get_global_step())
-
-        return tf.estimator.EstimatorSpec(mode, loss=loss, train_op=train_op)
-
-    return gcmc_model_fn
+    return tf.estimator.EstimatorSpec(mode, loss=loss, train_op=train_op)
 

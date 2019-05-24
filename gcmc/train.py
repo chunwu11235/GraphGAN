@@ -1,5 +1,6 @@
 from pipeline import preprocessing, get_input_fn, get_item_feature_columns, get_user_feature_columns
-from estimator_gcmc import get_gcmc_model_fn
+from estimator_gcmc import gcmc_model_fn
+
 
 import tensorflow as tf
 import functools
@@ -15,8 +16,8 @@ def main(argv):
             save_summary_steps=100)
 
     
-    #file_dir = '/Users/Dreamland/Documents/University_of_Washington/STAT548/project/GraphGAN/yelp_dataset/'
-    file_dir = 'yelp_dataset/'
+    file_dir = '/Users/Dreamland/Documents/University_of_Washington/STAT548/project/GraphGAN/yelp_dataset/'
+    #file_dir = 'yelp_dataset/'
     adj_mat_list, user_norm, item_norm,\
                 u_features_tensor_dict, v_features_tensor_dict, new_reviews, miscellany,\
                 N, num_train, num_val, num_test, train_idx, val_idx, test_idx = preprocessing(file_dir, verbose=True, test= True)
@@ -34,6 +35,9 @@ def main(argv):
     input_additional_info = {}
     for name in ['adj_mat_list', 'user_norm', 'item_norm', 'new_reviews', 'num_train', 'num_val','num_test', 'train_idx', 'val_idx', 'test_idx']:
         exec("input_additional_info[{0!r}] = {0}".format(name))
+    
+    input_additional_info['u_features'] = u_features_tensor_dict
+    input_additional_info['v_features'] = v_features_tensor_dict
     
     model_params = tf.contrib.training.HParams(
     num_users = len(user_norm),
@@ -54,16 +58,9 @@ def main(argv):
     
     
     input_fn=  get_input_fn(tf.estimator.ModeKeys.TRAIN, model_params, **input_additional_info)
-    
-    model_additional_info = {}
-    model_additional_info['u_features'] = u_features_tensor_dict
-    model_additional_info['v_features'] = v_features_tensor_dict
-    
-    
+        
     estimator = tf.estimator.Estimator(
-            model_fn=get_gcmc_model_fn(
-                **model_additional_info
-            ),
+            gcmc_model_fn,
             config=run_config,
             params=model_params)
 

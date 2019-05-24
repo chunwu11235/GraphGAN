@@ -199,6 +199,10 @@ def get_input_fn(mode, params, **input_additional_info):
     val_idx = input_additional_info['val_idx']
     test_idx = input_additional_info['test_idx']
 
+    u_features = input_additional_info['u_features']
+    v_features = input_additional_info['v_features']
+    
+    
     def _input_fn():
         """Estimator's input_fn.
         Returns:
@@ -277,6 +281,8 @@ def get_input_fn(mode, params, **input_additional_info):
 
         features['user_id'] = tf.SparseTensor(user_indices, user_value, dense_shape = [len(user_id), num_users])
         features['item_id'] = tf.SparseTensor(item_indices, item_value, dense_shape = [len(item_id), num_items])
+        features['u_features'] = u_features
+        features['v_features'] = v_features
         
         return features, tf.convert_to_tensor(cur_review[:,2], tf.int64)
 
