@@ -177,8 +177,6 @@ def preprocessing(file_dir, verbose = True ,test= False):
             N, num_train, num_val, num_test, train_idx, val_idx, test_idx
     
 
-    
-    
 
 def get_input_fn(mode, params, **input_additional_info):
     """Creates an input_fn that stores all the data in memory.
@@ -236,62 +234,47 @@ def get_input_fn(mode, params, **input_additional_info):
         user_id = cur_review[:, 0]
         item_id = cur_review[:, 1]
         
-        item_neigh_num_list = []
-        user_neigh_num_list = []
         
-        item_neigh_id_list = []
-        user_neigh_id_list = []
-        #return tf.convert_to_tensor(idx, tf.int64)
+        num_users = params.num_users
+        num_items = params.num_items
     
-    
-        for adj_mat in adj_mat_list:
+        for star, adj_mat in enumerate(adj_mat_list):
             item_sparse = adj_mat[:, item_id]
             user_sparse = adj_mat[user_id, :]
             
-            
             item_neigh_id = item_sparse.getH().nonzero()[1]
             user_neigh_id = user_sparse.nonzero()[1]
-            
-            item_neigh_id_list.append(item_neigh_id)
-            user_neigh_id_list.append(user_neigh_id)
-            
+                        
             item_neigh_num = item_sparse.sum(axis=0).A1
             user_neigh_num = user_sparse.sum(axis=1).A1
             
-            item_neigh_num_list.append(item_neigh_num)
-            user_neigh_num_list.append(user_neigh_num)
-        
-        
-        features['user_neigh_num_list'] = user_neigh_num_list
-        features['item_neigh_num_list'] = item_neigh_num_list
-        features['user_neigh_id_list']=  user_neigh_id_list 
-        features['item_neigh_id_list']=  item_neigh_id_list 
+            item_row = np.repeat(np.arange(len(item_id)), item_neigh_num)
+            item_indices = np.stack([item_row, item_neigh_id], axis = 1)
+            #left normalization
+            item_value = np.ones(len(item_neigh_id))* np.repeat(item_norm[item_id], item_neigh_num)
+            
+            
+            user_row = np.repeat(np.arange(len(user_id)), user_neigh_num)
+            user_indices = np.stack([user_row, user_neigh_id], axis = 1)
+            #left normalization
+            user_value = np.ones(len(user_neigh_id)) * np.repeat(user_norm[user_id], user_neigh_num)
+            
+            features['item_neigh_conv{}'.format(star)] = \
+                tf.SparseTensor(item_indices, item_value, dense_shape = [len(item_id), num_users])
+            features['user_neigh_conv{}'.format(star)] = \
+                tf.SparseTensor(user_indices, user_value, dense_shape = [len(user_id), num_items])
 
-        features['user_id'] = user_id
-        features['item_id'] = item_id
-        features['user_node_norm'] = user_norm[user_id]
-        features['item_node_norm'] = item_norm[item_id]
+        
+        user_indices = np.stack([np.arange(len(user_id)), user_id], axis = 1)
+        user_value = np.ones(len(user_id))
+
+        item_indices = np.stack([np.arange(len(item_id)), item_id], axis = 1)
+        item_value = np.ones(len(item_id))
+
+        features['user_id'] = tf.SparseTensor(user_indices, user_value, dense_shape = [len(user_id), num_users])
+        features['item_id'] = tf.SparseTensor(item_indices, item_value, dense_shape = [len(item_id), num_items])
         
         return features, tf.convert_to_tensor(cur_review[:,2], tf.int64)
-
-        # dataset = dataset.shuffle(buffer_size=10)
-        # dataset = dataset.repeat()
-        # # Preprocesses 10 files concurrently and interleaves records from each file.
-        # dataset = dataset.interleave(
-        #   tf.data.TFRecordDataset,
-        #   cycle_length=10,
-        #   block_length=1)
-        # dataset = dataset.map(
-        #   functools.partial(_parse_tfexample_fn, mode=mode),
-        #   num_parallel_calls=10)
-        # dataset = dataset.prefetch(1000)
-        # if mode == tf.estimator.ModeKeys.TRAIN:
-        # dataset = dataset.shuffle(buffer_size=30000)
-        # 
-        # dataset = dataset.padded_batch(
-        #   params.batch_size, padded_shapes=dataset.output_shapes)
-        # features, labels = dataset.make_one_shot_iterator().get_next()
-        # return features, labels
 
     return _input_fn
     
