@@ -73,7 +73,7 @@ def get_gcmc_model_fn(model_additional_info):
         """convolution"""
         item_conv = []
         user_conv = []
-        for star in range(params['classes']):
+        for star in range(params.classes):
             # TODO: node dropout
             item_conv.append(tf.sparse.matmul(features['item_neigh_conv{}'.format(star)],
                              user_features_all)
@@ -152,7 +152,7 @@ def get_gcmc_model_fn(model_additional_info):
         user_embedding = tf.nn.relu(f_user + h_user)
 
         f_item = tf.layers.dense(f_item,
-                                 units=paramsitem_embedding,
+                                 units=params.item_embedding,
                                  activation=None,
                                  kernel_initializer=tf.glorot_normal_initializer(),
                                  use_bias=False
@@ -168,13 +168,12 @@ def get_gcmc_model_fn(model_additional_info):
         """
         decoder
         """
-        # TODO: weight sharing
-        dim = params['hidden units'][1]
         weights_decoder = []
         with tf.variable_scope('decoder'):
             for i in range(params.classes):
                 weights = tf.get_variable(name='decoder' + str(i),
-                                          shape=[dim, dim],
+                                          shape=[params.user_embedding,
+                                                 params.item_embedding],
                                           trainable=True,
                                           initializer=tf.glorot_normal_initializer()
                                           )
