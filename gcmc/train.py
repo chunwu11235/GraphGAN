@@ -1,4 +1,4 @@
-from pipeline import preprocessing, get_input_fn, get_item_feature_columns, get_user_feature_columns
+from pipeline import preprocessing, get_input_fn, get_item_feature_columns, get_user_feature_columns, df2tensor
 from estimator_gcmc import gcmc_model_fn
 
 
@@ -19,12 +19,13 @@ def main(argv):
     file_dir = '/Users/Dreamland/Documents/University_of_Washington/STAT548/project/GraphGAN/yelp_dataset/'
     #file_dir = 'yelp_dataset/'
     adj_mat_list, user_norm, item_norm,\
-                u_features_tensor_dict, v_features_tensor_dict, new_reviews, miscellany,\
+                u_features, v_features, new_reviews, miscellany,\
                 N, num_train, num_val, num_test, train_idx, val_idx, test_idx = preprocessing(file_dir, verbose=True, test= True)
 
     
     # TODO: check
-   
+    v_features_tensor_dict = df2tensor(v_features,  miscellany['col_mapper'])
+    u_features_tensor_dict = df2tensor(u_features,  miscellany['col_mapper'])
     
     item_type_dict = {k:v.dtype for k, v in v_features_tensor_dict.items()}
     item_feature_columns = get_item_feature_columns(miscellany['business_vocab_list'], item_type_dict)
@@ -32,12 +33,19 @@ def main(argv):
     user_type_dict = {k:v.dtype for k, v in u_features_tensor_dict.items()}
     user_feature_columns = get_user_feature_columns(user_type_dict)
     
+    del v_features_tensor_dict
+    del u_features_tensor_dict
+
     input_additional_info = {}
     for name in ['adj_mat_list', 'user_norm', 'item_norm', 'new_reviews', 'num_train', 'num_val','num_test', 'train_idx', 'val_idx', 'test_idx']:
         exec("input_additional_info[{0!r}] = {0}".format(name))
     
-    input_additional_info['u_features'] = u_features_tensor_dict
-    input_additional_info['v_features'] = v_features_tensor_dict
+    input_additional_info['u_features'] = u_features
+    input_additional_info['v_features'] = v_features
+    input_additional_info['col_mapper'] = miscellany['col_mapper']
+
+    
+    
     
     model_params = tf.contrib.training.HParams(
     num_users = len(user_norm),

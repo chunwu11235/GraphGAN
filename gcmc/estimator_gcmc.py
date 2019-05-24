@@ -59,7 +59,8 @@ def gcmc_model_fn(features, labels, mode, params):
                                                       params.user_features_columns)
     item_features_all = tf.feature_column.input_layer(item_features_all,
                                                       params.item_features_columns)
-
+    tf.cast(user_features_all, tf.float64)
+    tf.cast(item_features_batch, tf.float64)
 
     """
     batch

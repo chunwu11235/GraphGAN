@@ -167,13 +167,10 @@ def preprocessing(file_dir, verbose = True ,test= False):
     #         N, num_train, num_val, num_test, train_idx, val_idx, test_idx
 
     
-    #This implementation slice after input
-    v_features_tensor_dict = df2tensor(v_features, miscellany['col_mapper'])
-    u_features_tensor_dict = df2tensor(u_features, miscellany['col_mapper'])
-    
+    #This implementation slice after input  
     
     return adj_mat_list, user_norm, item_norm,\
-            u_features_tensor_dict, v_features_tensor_dict, new_reviews, miscellany,\
+            u_features, v_features, new_reviews, miscellany,\
             N, num_train, num_val, num_test, train_idx, val_idx, test_idx
     
 
@@ -201,6 +198,7 @@ def get_input_fn(mode, params, **input_additional_info):
 
     u_features = input_additional_info['u_features']
     v_features = input_additional_info['v_features']
+    col_mapper = input_additional_info['col_mapper']
     
     
     def _input_fn():
@@ -281,8 +279,9 @@ def get_input_fn(mode, params, **input_additional_info):
 
         features['user_id'] = tf.SparseTensor(user_indices, user_value, dense_shape = [len(user_id), num_users])
         features['item_id'] = tf.SparseTensor(item_indices, item_value, dense_shape = [len(item_id), num_items])
-        features['u_features'] = u_features
-        features['v_features'] = v_features
+        features['u_features'] = df2tensor(u_features, col_mapper)
+        features['v_features'] = df2tensor(v_features, col_mapper)
+        
         
         return features, tf.convert_to_tensor(cur_review[:,2], tf.int64)
 
