@@ -3,13 +3,54 @@ from __future__ import division
 from __future__ import print_function
 
 import tensorflow as tf
-from tensorflow.keras import layers
-
-import numpy as np
-
 
 
 # TODO: params? what parameters do we need?
+
+
+# for testing
+params = {'hidden units': [1, 1],
+          'dropout': 0.1,
+          'classes': 2,
+          'learning rate': 0.001}
+
+user_features_all = tf.constant([[1, 0, 0],
+                             [0, 1, 0],
+                             [0, 0, 1]],
+                            dtype=tf.float32)
+
+item_features_all = tf.constant([[1, 0, 0],
+                             [0, 1, 0],
+                             [0, 0, 1]],
+                            dtype=tf.float32)
+item_id = [0, 1]
+user_id = [0, 1]
+
+
+user_conv = [tf.constant([[1, 0, 0],
+                          [0, 1, 0],
+                          [0, 0, 1]],
+                         dtype=tf.float32),
+             tf.constant([[1, 0, 0],
+                          [0, 1, 0],
+                          [0, 0, 1]],
+                         dtype=tf.float32)]
+
+item_conv = [tf.constant([[1, 0, 0],
+                          [0, 1, 0],
+                          [0, 0, 1]],
+                         dtype=tf.float32),
+             tf.constant([[1, 0, 0],
+                          [0, 1, 0],
+                          [0, 0, 1]],
+                         dtype=tf.float32)]
+
+init_op = tf.global_variables_initializer()
+sess = tf.Session()
+sess.run(init_op)
+
+
+
 
 
 def gcmc_model_fn(features, labels, mode, params):
@@ -17,23 +58,63 @@ def gcmc_model_fn(features, labels, mode, params):
 
 
     # TODO: input and convolution layer
-    user_features = features['user_features']
-    item_features = features['item_features']
+    user_features_all = features['user_features']
+    item_features_all = features['item_features']
+
+    user_features_all = tf.feature_column.input_layer(user_features_all, params['user_features_columns'])
+    item_features_all = tf.feature_column.input_layer(item_features_all, params['item_features_columns'])
 
 
-    x_user = tf.feature_column.input_layer(user_features, params['user_features_columns'])
-    x_user_conv_1 = tf.feature_column.input_layer(user_features_conv_1, params['user_features_columns'])
-    x_user_conv_2 = tf.feature_column.input_layer(user_features_conv_2, params['user_features_columns'])
-    x_user_conv_3 = tf.feature_column.input_layer(user_features_conv_3, params['user_features_columns'])
-    x_user_conv_4 = tf.feature_column.input_layer(user_features_conv_4, params['user_features_columns'])
-    x_user_conv_5 = tf.feature_column.input_layer(user_features_conv_5, params['user_features_columns'])
+    # batch
+    item_features = []
+    for id in item_id:
+        item_features.append(item_features_all[id, :])
+    item_features = tf.stack(item_features)
 
-    x_item = tf.feature_column.input_layer(item_features, params['item_features_columns'])
-    x_item_conv_1 = tf.feature_column.input_layer(item_features_conv_1, params['user_features_columns'])
-    x_item_conv_2 = tf.feature_column.input_layer(item_features_conv_2, params['user_features_columns'])
-    x_item_conv_3 = tf.feature_column.input_layer(item_features_conv_3, params['user_features_columns'])
-    x_item_conv_4 = tf.feature_column.input_layer(item_features_conv_4, params['user_features_columns'])
-    x_item_conv_5 = tf.feature_column.input_layer(item_features_conv_5, params['user_features_columns'])
+    user_features = []
+    for id in user_id:
+        user_features.append(user_features_all[id, :])
+    user_features = tf.stack(user_features)
+
+
+
+    """convolution"""
+    item_conv = []
+    for r in range(params['classes']):
+        neighbor_list = item_neighbor_list[r]
+        start = 0
+        batch = []
+        for i,n in enumerate(item_neighbor_num):
+            neighbors = neighbor_list[start:(start+n)]
+            start += n
+            conv = 0
+            for node in neighbors:
+                # TODO: node dropout
+                conv += user_features_all[node,:]
+            conv *= item_node_norm[i]
+            batch.append(conv)
+        batch = tf.stack(batch)
+        item_conv.append(batch)
+
+
+    user_conv = []
+    for r in range(params['classes']):
+        neighbor_list = user_neighbor_list[r]
+        start = 0
+        batch = []
+        for i,n in enumerate(user_neighbor_num):
+            neighbors = neighbor_list[start:(start+n)]
+            start += n
+            conv = 0
+            for node in neighbors:
+                # TODO: node dropout
+                conv += item_features_all[node,:]
+            conv *= user_node_norm[i]
+            batch.append(conv)
+        batch = tf.stack(batch)
+        user_conv.append(batch)
+
+
 
 
     """
@@ -49,6 +130,7 @@ def gcmc_model_fn(features, labels, mode, params):
     f_user = tf.layers.dropout(f_user, rate=params['dropout'])
 
     # user convolutions
+    # TODO: weight sharing
     h_user = []
     for u in user_conv:
         h_u = tf.layers.dense(u,
@@ -73,6 +155,7 @@ def gcmc_model_fn(features, labels, mode, params):
 
     # item convolution
     h_item = []
+    # TODO: weight sharing
     for v in item_conv:
         h_v = tf.layers.dense(v,
                               units=params['hidden units'][0],
@@ -119,8 +202,8 @@ def gcmc_model_fn(features, labels, mode, params):
     """
     decoder
     """
+    # TODO: weight sharing
     dim = params['hidden units'][1]
-
     weights_decoder = []
     with tf.variable_scope('decoder'):
         for i in range(params['classes']):
@@ -137,7 +220,6 @@ def gcmc_model_fn(features, labels, mode, params):
         uQv = tf.reduce_sum(tf.multiply(uQ, item_embedding), axis=1)
         logits.append(uQv)
     logits = tf.stack(logits, axis=1)
-
 
 
     """
@@ -244,44 +326,7 @@ def gcmc_model_fn(features, labels, mode, params):
 #
 
 def test_gcmc_model_fn():
-    # for testing
-    params = { 'hidden units': [1, 1],
-               'dropout': 0.1,
-               'classes': 2,
-               'learning rate': 0.001}
-
-    user_features = tf.constant([[1, 0, 0],
-                                 [0, 1, 0],
-                                 [0, 0, 1]],
-                                dtype=tf.float32)
-
-    item_features = tf.constant([[1, 0, 0],
-                                 [0, 1, 0],
-                                 [0, 0, 1]],
-                                dtype=tf.float32)
-
-    user_conv = [tf.constant([[1, 0, 0],
-                              [0, 1, 0],
-                              [0, 0, 1]],
-                             dtype=tf.float32),
-                 tf.constant([[1, 0, 0],
-                              [0, 1, 0],
-                              [0, 0, 1]],
-                             dtype=tf.float32)]
-
-    item_conv = [tf.constant([[1, 0, 0],
-                              [0, 1, 0],
-                              [0, 0, 1]],
-                             dtype=tf.float32),
-                 tf.constant([[1, 0, 0],
-                              [0, 1, 0],
-                              [0, 0, 1]],
-                             dtype=tf.float32)]
-
-
-    init_op = tf.global_variables_initializer()
-    sess = tf.Session()
-    sess.run(init_op)
+    pass
 
 
 
