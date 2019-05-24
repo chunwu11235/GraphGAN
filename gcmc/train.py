@@ -1,6 +1,5 @@
 from pipeline import preprocessing, get_input_fn
-from model import get_model_fn
-
+from estimator_gcmc import get_gcmc_model_fn
 
 import tensorflow as tf
 import functools
@@ -23,9 +22,17 @@ def main():
                 N, num_train, num_val, num_test, train_idx, val_idx, test_idx = preprocessing(file_dir, verbose=True, test= True)
 
     
-    
+    # TODO: check
     model_params = tf.contrib.training.HParams(
-    batch_size = FLAGS.batch_size, 
+    batch_size=FLAGS.batch_size,
+    learning_rate=FLAGS.batch_size,
+    dim_user_raw=FLAGS.dim_user_raw,
+    dim_item_raw=FLAGS.dim_item_raw,
+    dim_user_conv=FLAGS.dim_user_conv,
+    dim_item_conv=FLAGS.dim_item_conv,
+    dim_user_embedding=FLAGS.dim_user_embedding,
+    dim_item_embedding=FLAGS.dim_item_embedding,
+    classes=FLAGS.classes,
     dropout=FLAGS.dropout)
     
     
@@ -47,7 +54,7 @@ def main():
     
     
     estimator = tf.estimator.Estimator(
-            model_fn=get_model_fn(
+            model_fn=get_gcmc_model_fn(
                 model_additional_info
             ),
             config=run_config,
@@ -73,13 +80,29 @@ if __name__ == "__main__":
     flags = tf.app.flags
     FLAGS = flags.FLAGS
 
-    flags.DEFINE_integer('dim_embedding', 2
-    "dimension of user and item embedding")
     flags.DEFINE_integer('max_steps',10,
     "Number of training steps.")
     flags.DEFINE_integer('batch_size', 1024,
     "Number of observations in a sample")
-    
+    flags.DEFINE_float('learning_rate', 0.001,
+                         "Number of observations in a sample")
+    flags.DEFINE_integer('classes', 5,
+                         "Number of observations in a sample")
+    flags.DEFINE_integer('dim_user_raw', 20,
+                         "Number of observations in a sample")
+    flags.DEFINE_integer('dim_item_raw', 20,
+                         "Number of observations in a sample")
+    flags.DEFINE_integer('dim_user_conv', 30,
+                         "Number of observations in a sample")
+    flags.DEFINE_integer('dim_item_conv', 30,
+                         "Number of observations in a sample")
+    flags.DEFINE_integer('dim_user_embedding', 30,
+                         "Number of observations in a sample")
+    flags.DEFINE_integer('dim_item_embedding', 30,
+                         "Number of observations in a sample")
+
+    flags.DEFINE_integer('batch_size', 1024,
+                         "Number of observations in a sample")
     #directory of various files
     flags.DEFINE_string('model_dir', 'tmp/',
     "Path for storing the model checkpoints.")
