@@ -221,8 +221,12 @@ def get_input_fn(mode, params, **input_additional_info):
         dataset = dataset.shuffle(buffer_size=cur_size)
         dataset = dataset.batch(params.batch_size)
         idx = dataset.make_one_shot_iterator().get_next()
-        
-        idx = idx.eval().squeeze()
+
+        # TODO: check this
+        with tf.Session().as_default():
+            idx = idx.eval().squeeze()
+
+        # idx = idx.eval().squeeze()
         
         size = len(idx)
         rating_idx = cur_idx[idx]

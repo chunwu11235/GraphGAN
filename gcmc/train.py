@@ -1,4 +1,4 @@
-from pipeline import preprocessing, get_input_fn
+from pipeline import preprocessing, get_input_fn, get_item_feature_columns, get_user_feature_columns
 from estimator_gcmc import get_gcmc_model_fn
 
 import tensorflow as tf
@@ -6,7 +6,7 @@ import functools
 import sys
 import numpy as np
 
-def main(argu):
+def main(argv):
     tf.logging.set_verbosity(tf.logging.INFO)
     
     run_config=tf.estimator.RunConfig(
@@ -16,7 +16,7 @@ def main(argu):
 
     
     #file_dir = '/Users/Dreamland/Documents/University_of_Washington/STAT548/project/GraphGAN/yelp_dataset/'
-    file_dir = 'yelp_dataset'
+    file_dir = 'yelp_dataset/'
     adj_mat_list, user_norm, item_norm,\
                 u_features_tensor_dict, v_features_tensor_dict, new_reviews, miscellany,\
                 N, num_train, num_val, num_test, train_idx, val_idx, test_idx = preprocessing(file_dir, verbose=True, test= True)
@@ -36,6 +36,8 @@ def main(argu):
         exec("input_additional_info[{0!r}] = {0}".format(name))
     
     model_params = tf.contrib.training.HParams(
+    num_users = len(user_norm),
+    num_items = len(item_norm),
     batch_size=FLAGS.batch_size,
     learning_rate=FLAGS.batch_size,
     dim_user_raw=FLAGS.dim_user_raw,
@@ -60,19 +62,19 @@ def main(argu):
     
     estimator = tf.estimator.Estimator(
             model_fn=get_gcmc_model_fn(
-                model_additional_info
+                **model_additional_info
             ),
             config=run_config,
             params=model_params)
 
     train_spec = tf.estimator.TrainSpec(input_fn=get_input_fn(
-        tf.estimator.ModeKeys.TRAIN, params,
-        input_additional_info), max_steps=FLAGS.max_steps)
+        tf.estimator.ModeKeys.TRAIN, model_params,
+        **input_additional_info), max_steps=FLAGS.max_steps)
 
     eval_spec = tf.estimator.EvalSpec(input_fn=get_input_fn(
         tf.estimator.ModeKeys.EVAL,
-        params,
-        input_addtional_info))
+        model_params,
+        **input_additional_info))
 
     tf.estimator.train_and_evaluate(estimator, train_spec, eval_spec)
 

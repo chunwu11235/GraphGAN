@@ -50,7 +50,9 @@ import tensorflow as tf
 # sess.run(init_op)
 
 
-def get_gcmc_model_fn(model_additional_info):
+
+
+def get_gcmc_model_fn(**model_additional_info):
     
     user_features_all = model_additional_info['u_features']
     item_features_all = model_additional_info['v_features']
@@ -226,5 +228,5 @@ def get_gcmc_model_fn(model_additional_info):
 
         return tf.estimator.EstimatorSpec(mode, loss=loss, train_op=train_op)
 
-    return get_gcmc_model_fn
+    return gcmc_model_fn
 
