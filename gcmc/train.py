@@ -92,26 +92,26 @@ if __name__ == "__main__":
     flags = tf.app.flags
     FLAGS = flags.FLAGS
 
-    flags.DEFINE_integer('max_steps',10,
+    flags.DEFINE_integer('max_steps',1000,
     "Number of training steps.")
-    flags.DEFINE_integer('batch_size', 1024,
+    flags.DEFINE_integer('batch_size', 20,
     "Number of observations in a sample")
-    flags.DEFINE_float('learning_rate', 0.001,
-                         "Number of observations in a sample")
+    flags.DEFINE_float('learning_rate', 0.1,
+                         "learning_rate")
     flags.DEFINE_integer('classes', 5,
-                         "Number of observations in a sample")
-    flags.DEFINE_integer('dim_user_raw', 20,
-                         "Number of observations in a sample")
-    flags.DEFINE_integer('dim_item_raw', 20,
-                         "Number of observations in a sample")
+                         "classes")
+    flags.DEFINE_integer('dim_user_raw', 10,
+                         "dim_user_raw")
+    flags.DEFINE_integer('dim_item_raw', 30,
+                         "dim_item_raw")
     flags.DEFINE_integer('dim_user_conv', 30,
-                         "Number of observations in a sample")
-    flags.DEFINE_integer('dim_item_conv', 30,
-                         "Number of observations in a sample")
-    flags.DEFINE_integer('dim_user_embedding', 30,
-                         "Number of observations in a sample")
-    flags.DEFINE_integer('dim_item_embedding', 30,
-                         "Number of observations in a sample")
+                         "dim_user_conv")
+    flags.DEFINE_integer('dim_item_conv', 10,
+                         "dim_item_conv")
+    flags.DEFINE_integer('dim_user_embedding', 5,
+                         "dim_user_embedding")
+    flags.DEFINE_integer('dim_item_embedding', 5,
+                         "dim_item_embedding")
     #directory of various files
     flags.DEFINE_string('model_dir', 'tmp/',
     "Path for storing the model checkpoints.")

@@ -116,17 +116,16 @@ def gcmc_model_fn(features, labels, mode, params):
 
     # user convolutions
     # TODO: weight sharing
-    h_user = []
-    for u in user_conv:
-        h_u = tf.layers.dense(u,
+    h_user = {}
+    for star, u in enumerate(user_conv):
+        h_user[star] = tf.layers.dense(u,
                               units=params.dim_user_conv,
                               activation=tf.nn.relu,
                               kernel_initializer=tf.glorot_normal_initializer(),
                               use_bias=False
                               )
-        h_u = tf.layers.dropout(h_u, rate=params.dropout)
-        h_user.append(h_u)
-    h_user = tf.concat(h_user, axis=1)
+        h_user[star] = tf.layers.dropout(h_user[star], rate=params.dropout)
+    h_user = tf.concat([h_user[star] for star in h_user.keys()], axis=1)
     h_user = tf.layers.dropout(h_user, rate=params.dropout)
 
     # item features
@@ -141,16 +140,16 @@ def gcmc_model_fn(features, labels, mode, params):
     # item convolution
     h_item = []
     # TODO: weight sharing
-    for v in item_conv:
-        h_v = tf.layers.dense(v,
+    h_item = {}
+    for star, v in enumerate(item_conv):
+        h_item[star] = tf.layers.dense(v,
                               units=params.dim_item_conv,
                               activation=tf.nn.relu,
                               kernel_initializer=tf.glorot_normal_initializer(),
                               use_bias=False
                               )
-        h_v = tf.layers.dropout(h_v, rate=params.dropout)
-        h_item.append(h_v)
-    h_item = tf.concat(h_item, axis=1)
+        h_item[star] = tf.layers.dropout(h_item[star], rate=params.dropout)
+    h_item = tf.concat([h_item[star] for star in h_item.keys()], axis=1)
     h_item = tf.layers.dropout(h_item, rate=params.dropout)
 
 
@@ -187,25 +186,27 @@ def gcmc_model_fn(features, labels, mode, params):
     """
     decoder
     """
-    weights_decoder = []
+    weights_decoder = {}
     with tf.variable_scope('decoder'):
-        for i in range(params.classes):
-            weights = tf.get_variable(name='decoder' + str(i),
-                                      shape=[params.dim_user_embedding,
-                                             params.dim_item_embedding],
-                                      dtype=tf.float64,
-                                      trainable=True,
-                                      initializer=tf.glorot_normal_initializer()
-                                      )
-            weights_decoder.append(weights)
+        for star in range(params.classes):
+            weights_decoder[star] = tf.get_variable(name='decoder' + str(star),
+                                                    shape=[params.dim_user_embedding,
+                                                           params.dim_item_embedding],
+                                                    dtype=tf.float64,
+                                                    trainable=True,
+                                                    initializer=tf.glorot_normal_initializer()
+                                                    )
 
     logits = []
     kernel = 0
-    for i, weight in enumerate(weights_decoder):
-        kernel += weight
-        uQ = tf.matmul(user_embedding, kernel)
-        uQv = tf.reduce_sum(tf.multiply(uQ, item_embedding), axis=1)
-        logits.append(uQv)
+    for star in weights_decoder:
+        kernel += weights_decoder[star]
+        # uQ = tf.matmul(user_embedding, kernel)
+        # uQv = tf.reduce_sum(tf.multiply(uQ, item_embedding), axis=1)
+        #
+        logits.append(tf.reduce_sum(tf.multiply(tf.matmul(user_embedding, kernel),
+                                                item_embedding),
+                                    axis=1))
     logits = tf.stack(logits, axis=1)
 
 
