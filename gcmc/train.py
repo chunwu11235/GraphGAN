@@ -7,20 +7,34 @@ import functools
 import sys
 import numpy as np
 
+#import os 
+#os.environ['CUDA_VISIBLE_DEVICES'] = '0'
+
 def main(argv):
     tf.logging.set_verbosity(tf.logging.INFO)
-    
+
+#    session_config = tf.ConfigProto(
+#                    log_device_placement=True,
+#                    inter_op_parallelism_threads=0,
+#                    intra_op_parallelism_threads=0,
+#                    allow_soft_placement=True)
+#    session_config.gpu_options.allow_growth = True
+#    session_config.gpu_options.allocator_type = 'BFC'
+#
     run_config=tf.estimator.RunConfig(
             model_dir=FLAGS.model_dir,
+#            session_config = session_config,
             save_checkpoints_secs=20,
             save_summary_steps=100)
 
     
-    file_dir = '/Users/Dreamland/Documents/University_of_Washington/STAT548/project/GraphGAN/yelp_dataset/'
+    #file_dir = '/Users/Dreamland/Documents/University_of_Washington/STAT548/project/GraphGAN/yelp_dataset/'
     #file_dir = 'yelp_dataset/'
+    file_dir = '/home/FDSM_lhn/GraphGAN/yelp_dataset/'
+
     adj_mat_list, user_norm, item_norm,\
                 u_features, v_features, new_reviews, miscellany,\
-                N, num_train, num_val, num_test, train_idx, val_idx, test_idx = preprocessing(file_dir, verbose=True, test= True)
+                N, num_train, num_val, num_test, train_idx, val_idx, test_idx = preprocessing(file_dir, verbose=True, test= False)
 
     
     # TODO: check

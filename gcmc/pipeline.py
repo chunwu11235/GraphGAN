@@ -60,12 +60,14 @@ def list2sparsetensor(list_feat, feat_col_mapper):
     for row, cur_list in enumerate(list_feat):
         if isinstance(cur_list, list):
             for cate in cur_list:
-                indices.append([row, feat_col_mapper[cate]])
-                value.append(cate)
+                if cate != '' and cate != -1:
+                    indices.append([row, feat_col_mapper[cate]])
+                    value.append(cate)
         else:
             # for case where each element is not list but single one
-            indices.append([row, feat_col_mapper[cur_list]])
-            value.append(cur_list)
+            if cur_list != '' and cur_list != -1: 
+                indices.append([row, feat_col_mapper[cur_list]])
+                value.append(cur_list)
             
 
     indices = tf.convert_to_tensor(indices, tf.int64)
