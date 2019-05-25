@@ -2,13 +2,29 @@ import numpy as np
 from data_utils import data_loading
 from scipy.sparse import csr_matrix
 
-
+from collections import OrderedDict
 import tensorflow as tf
 from tensorflow.feature_column import indicator_column,numeric_column, embedding_column, bucketized_column,categorical_column_with_vocabulary_list
 
 
+def get_type_dict(features):
+    item_datatypes = features.dtypes.iteritems()
+    
+    type_dict = {}
+    #col_mapper is only useful for item feature
+    for k, v in item_datatypes:
+        if k in ['categories', 'city'] or  v == np.object:
+            type_dict[k] = tf.string
+        elif v == np.float and k in ['stars', 'average_stars']:
+            type_dict[k] = tf.float64
+        else:
+            type_dict[k] = tf.int64
+    
+    return type_dict
 
-        
+
+
+
 def get_item_feature_columns(business_vocab_list, item_type_dict):
     
     items_feature_columns = []
@@ -74,17 +90,21 @@ def list2sparsetensor(list_feat, feat_col_mapper):
     return tf.SparseTensor(indices, value, dense_shape = [len(list_feat), len(feat_col_mapper)])
     
 
-def df2tensor(features, col_mapper):
+def df2tensor(features, col_mapper, slice_list):
     
     item_datatypes = features.dtypes.iteritems()
-    result_dict = features.to_dict(orient = 'list')
-
+    
+    new_features = features.loc[slice_list]
+    result_dict = new_features.to_dict(orient = 'list')
+    
     #col_mapper is only useful for item feature
     for k, v in item_datatypes:
         if k in ['categories', 'city'] :
             result_dict[k] = list2sparsetensor(result_dict[k], col_mapper[k])
             continue
         if v == np.object:
+            # print(k)
+            # print(result_dict[k])
             result_dict[k] = tf.convert_to_tensor(result_dict[k], dtype = tf.string)
         elif v == np.float and k in ['stars', 'average_stars']:
             result_dict[k] = tf.convert_to_tensor(result_dict[k], dtype = tf.float64)
@@ -152,7 +172,7 @@ def preprocessing(file_dir, verbose = True ,test= False):
     
     
     for colname in v_features.columns:
-        if v_features[colname].dtype == np.object:
+        if v_features[colname].dtype == np.object or colname in ['categories','']:
             v_features[colname].fillna("", inplace=True)
         else:
             v_features[colname].fillna(-1, inplace=True)
@@ -173,8 +193,18 @@ def preprocessing(file_dir, verbose = True ,test= False):
             u_features, v_features, new_reviews, miscellany,\
             N, num_train, num_val, num_test, train_idx, val_idx, test_idx
     
+def new_id_mapper(id_list, mapper, cur_count):
+    
+    new_id_list = np.zeros(len(id_list))
+    for num, i in enumerate(id_list):
+        if i not in mapper:
+            mapper[i] = cur_count
+            cur_count += 1
+        new_id_list[num] = mapper[i]
+    return new_id_list, cur_count
+    
 
-
+    
 def get_input_fn(mode, params, **input_additional_info):
     """Creates an input_fn that stores all the data in memory.
     Args:
@@ -244,43 +274,62 @@ def get_input_fn(mode, params, **input_additional_info):
         num_users = params.num_users
         num_items = params.num_items
     
+        item_dict = OrderedDict()
+        user_dict = OrderedDict()
+        item_id_count = 0
+        user_id_count = 0
+        
+        
+        
+        
         for star, adj_mat in enumerate(adj_mat_list):
             item_sparse = adj_mat[:, item_id]
             user_sparse = adj_mat[user_id, :]
             
             item_neigh_id = item_sparse.getH().nonzero()[1]
             user_neigh_id = user_sparse.nonzero()[1]
+            
+            new_item_neigh_id = np.zeros(len(item_neigh_id))
+            new_user_neigh_id = np.zeros(len(item_neigh_id))
+            
+            
+            new_item_neigh_id, user_id_count = new_id_mapper(item_neigh_id, user_dict, user_id_count)
+            new_user_neigh_id, item_id_count = new_id_mapper(user_neigh_id, item_dict, item_id_count)
                         
             item_neigh_num = item_sparse.sum(axis=0).A1
             user_neigh_num = user_sparse.sum(axis=1).A1
             
             item_row = np.repeat(np.arange(len(item_id)), item_neigh_num)
-            item_indices = np.stack([item_row, item_neigh_id], axis = 1)
+            
+            item_indices = np.stack([item_row, new_item_neigh_id], axis = 1)
             #left normalization
-            item_value = np.ones(len(item_neigh_id))* np.repeat(item_norm[item_id], item_neigh_num)
+            item_value = np.ones(len(new_item_neigh_id))* np.repeat(item_norm[item_id], item_neigh_num)
             
             
             user_row = np.repeat(np.arange(len(user_id)), user_neigh_num)
-            user_indices = np.stack([user_row, user_neigh_id], axis = 1)
+            user_indices = np.stack([user_row, new_user_neigh_id], axis = 1)
             #left normalization
-            user_value = np.ones(len(user_neigh_id)) * np.repeat(user_norm[user_id], user_neigh_num)
+            user_value = np.ones(len(new_user_neigh_id)) * np.repeat(user_norm[user_id], user_neigh_num)
             
             features['item_neigh_conv{}'.format(star)] = \
                 tf.SparseTensor(item_indices, item_value, dense_shape = [len(item_id), num_users])
             features['user_neigh_conv{}'.format(star)] = \
                 tf.SparseTensor(user_indices, user_value, dense_shape = [len(user_id), num_items])
 
+        new_user_id, user_id_count = new_id_mapper(user_id, user_dict, user_id_count)
+        new_item_id, item_id_count = new_id_mapper(item_id, item_dict, item_id_count)
         
-        user_indices = np.stack([np.arange(len(user_id)), user_id], axis = 1)
+        user_indices = np.stack([np.arange(len(user_id)), new_user_id], axis = 1)
         user_value = np.ones(len(user_id))
-
-        item_indices = np.stack([np.arange(len(item_id)), item_id], axis = 1)
+        item_indices = np.stack([np.arange(len(item_id)), new_item_id], axis = 1)
         item_value = np.ones(len(item_id))
 
-        features['user_id'] = tf.SparseTensor(user_indices, user_value, dense_shape = [len(user_id), num_users])
-        features['item_id'] = tf.SparseTensor(item_indices, item_value, dense_shape = [len(item_id), num_items])
-        features['u_features'] = df2tensor(u_features, col_mapper)
-        features['v_features'] = df2tensor(v_features, col_mapper)
+        features['user_id'] = tf.SparseTensor(user_indices, user_value, dense_shape = [len(user_id), user_id_count])
+        features['item_id'] = tf.SparseTensor(item_indices, item_value, dense_shape = [len(item_id), item_id_count])
+        
+        
+        features['v_features'] = df2tensor(v_features, col_mapper, list(item_dict.keys()))
+        features['u_features'] = df2tensor(u_features, col_mapper, list(user_dict.keys()))
         
         
         return features, tf.convert_to_tensor(cur_review[:,2], tf.int64)
