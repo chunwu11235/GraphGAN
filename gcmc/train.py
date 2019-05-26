@@ -1,55 +1,50 @@
-from pipeline import preprocessing, get_input_fn, get_item_feature_columns, get_user_feature_columns, df2tensor
+import os
+#os.environ['CUDA_VISIBLE_DEVICES'] = '0'
+#os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+import logging
+#tf.get_logger().setLevel(logging.ERROR)
+#logging.getLogger('tensorflow').setLevel(logging.ERROR)
+
+from pipeline import preprocessing, get_input_fn, get_item_feature_columns, get_user_feature_columns, df2tensor, get_type_dict
 from estimator_gcmc import gcmc_model_fn
 
 
-import tensorflow as tf
 import functools
 import sys
 import numpy as np
 
-#import os 
-#os.environ['CUDA_VISIBLE_DEVICES'] = '0'
+
+import tensorflow as tf
 
 def main(argv):
-    tf.logging.set_verbosity(tf.logging.INFO)
-
-#    session_config = tf.ConfigProto(
-#                    log_device_placement=True,
-#                    inter_op_parallelism_threads=0,
-#                    intra_op_parallelism_threads=0,
-#                    allow_soft_placement=True)
-#    session_config.gpu_options.allow_growth = True
-#    session_config.gpu_options.allocator_type = 'BFC'
-#
-    run_config=tf.estimator.RunConfig(
-            model_dir=FLAGS.model_dir,
-#            session_config = session_config,
-            save_checkpoints_secs=20,
-            save_summary_steps=100)
-
-    
+        
     #file_dir = '/Users/Dreamland/Documents/University_of_Washington/STAT548/project/GraphGAN/yelp_dataset/'
-    #file_dir = 'yelp_dataset/'
     file_dir = '/home/FDSM_lhn/GraphGAN/yelp_dataset/'
-
+    #file_dir = 'yelp_dataset/'
     adj_mat_list, user_norm, item_norm,\
                 u_features, v_features, new_reviews, miscellany,\
                 N, num_train, num_val, num_test, train_idx, val_idx, test_idx = preprocessing(file_dir, verbose=True, test= False)
 
-    
-    # TODO: check
-    v_features_tensor_dict = df2tensor(v_features,  miscellany['col_mapper'])
-    u_features_tensor_dict = df2tensor(u_features,  miscellany['col_mapper'])
-    
-    item_type_dict = {k:v.dtype for k, v in v_features_tensor_dict.items()}
-    item_feature_columns = get_item_feature_columns(miscellany['business_vocab_list'], item_type_dict)
+    session_config = tf.ConfigProto(
+        log_device_placement=True,
+        inter_op_parallelism_threads=0,
+        intra_op_parallelism_threads=0,
+        allow_soft_placement=True)
 
-    user_type_dict = {k:v.dtype for k, v in u_features_tensor_dict.items()}
+    session_config.gpu_options.allow_growth = True
+    session_config.gpu_options.allocator_type = 'BFC'
+    run_config=tf.estimator.RunConfig(
+            model_dir=FLAGS.model_dir,
+    #        session_config = session_config,
+            save_checkpoints_secs=20,
+            save_summary_steps=100)
+
+    item_type_dict = get_type_dict(v_features)
+    user_type_dict = get_type_dict(u_features)
+    
+    item_feature_columns = get_item_feature_columns(miscellany['business_vocab_list'], item_type_dict)
     user_feature_columns = get_user_feature_columns(user_type_dict)
     
-    del v_features_tensor_dict
-    del u_features_tensor_dict
-
     input_additional_info = {}
     for name in ['adj_mat_list', 'user_norm', 'item_norm', 'new_reviews', 'num_train', 'num_val','num_test', 'train_idx', 'val_idx', 'test_idx']:
         exec("input_additional_info[{0!r}] = {0}".format(name))
@@ -58,8 +53,6 @@ def main(argv):
     input_additional_info['v_features'] = v_features
     input_additional_info['col_mapper'] = miscellany['col_mapper']
 
-    
-    
     
     model_params = tf.contrib.training.HParams(
     num_users = len(user_norm),
@@ -108,7 +101,7 @@ if __name__ == "__main__":
 
     flags.DEFINE_integer('max_steps',10,
     "Number of training steps.")
-    flags.DEFINE_integer('batch_size', 1024,
+    flags.DEFINE_integer('batch_size', 64,
     "Number of observations in a sample")
     flags.DEFINE_float('learning_rate', 0.001,
                          "Number of observations in a sample")

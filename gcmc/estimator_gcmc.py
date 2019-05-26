@@ -52,12 +52,8 @@ import tensorflow as tf
 
 
 def gcmc_model_fn(features, labels, mode, params):
-    labels -= 1
-    
     user_features_all = features['u_features']
     item_features_all = features['v_features']
-    
-    
     
     user_features_all = tf.feature_column.input_layer(user_features_all,
                                                       params.user_features_columns)
@@ -70,8 +66,6 @@ def gcmc_model_fn(features, labels, mode, params):
 
     user_features_all = tf.cast(user_features_all, tf.float64)
     item_features_all = tf.cast(item_features_all, tf.float64)
-
-    # print(features.keys())
     #
     # for key in features:
     #     print(key, features[key].shape)
