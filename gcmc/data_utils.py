@@ -218,6 +218,8 @@ def data_loading(file_dir, verbose = False, test= False):
     
     print("Re-process the full files")
     if test:
+        for file in ['business', 'review', 'user']:
+            create_test_file(file_dir+file)
         file_list = [file_dir + i + '.json' for i in ['business_test', 'review_test', 'user_test']]
     else:
         file_list = [file_dir + i + '.json' for i in ['business', 'review', 'user']]
@@ -259,9 +261,10 @@ def data_loading(file_dir, verbose = False, test= False):
 
 if __name__ =='__main__':
     file_dir =  "/Users/Dreamland/Documents/University_of_Washington/STAT548/project/GraphGAN/yelp_dataset/"
-    
+    file_dir = 'yelp_dataset/'
+
     if 'business_test.json' not in os.listdir(file_dir):
         for file in ['business', 'review', 'user']:
             create_test_file(file_dir + file)
-    
-    u_features, v_features, new_reviews, miscellany = data_loading(file_dir, verbose = False, test = False)
+
+    u_features, v_features, new_reviews, miscellany = data_loading(file_dir, verbose = False, test = True)
