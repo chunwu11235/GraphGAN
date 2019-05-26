@@ -1,21 +1,25 @@
+import os
+#os.environ['CUDA_VISIBLE_DEVICES'] = '0'
+#os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+
+
 from pipeline import preprocessing, get_input_fn, get_item_feature_columns, get_user_feature_columns, df2tensor, get_type_dict
 from estimator_gcmc import gcmc_model_fn
 
 
-import tensorflow as tf
 import functools
 import sys
 import numpy as np
 
-def main(argv):
-    tf.logging.set_verbosity(tf.logging.INFO)
-    
-    run_config=tf.estimator.RunConfig(
-            model_dir=FLAGS.model_dir,
-            save_checkpoints_secs=20,
-            save_summary_steps=100)
 
-    
+
+import logging
+#tf.get_logger().setLevel(logging.ERROR)
+#logging.getLogger('tensorflow').setLevel(logging.ERROR)
+import tensorflow as tf
+
+def main(argv):
+        
     #file_dir = '/Users/Dreamland/Documents/University_of_Washington/STAT548/project/GraphGAN/yelp_dataset/'
     file_dir = '/home/FDSM_lhn/GraphGAN/yelp_dataset/'
     #file_dir = 'yelp_dataset/'
@@ -23,7 +27,21 @@ def main(argv):
                 u_features, v_features, new_reviews, miscellany,\
                 N, num_train, num_val, num_test, train_idx, val_idx, test_idx = preprocessing(file_dir, verbose=True, test= False)
 
-    
+    session_config = tf.ConfigProto(
+        log_device_placement=True,
+        inter_op_parallelism_threads=0,
+        intra_op_parallelism_threads=0,
+        allow_soft_placement=True)
+
+    session_config.gpu_options.allow_growth = True
+    session_config.gpu_options.allocator_type = 'BFC'
+    run_config=tf.estimator.RunConfig(
+            model_dir=FLAGS.model_dir,
+    #        session_config = session_config,
+            save_checkpoints_secs=20,
+            save_summary_steps=100)
+
+
     # TODO: check
     
     item_type_dict = get_type_dict(v_features)
@@ -88,7 +106,7 @@ if __name__ == "__main__":
 
     flags.DEFINE_integer('max_steps',10,
     "Number of training steps.")
-    flags.DEFINE_integer('batch_size', 1024,
+    flags.DEFINE_integer('batch_size', 64,
     "Number of observations in a sample")
     flags.DEFINE_float('learning_rate', 0.001,
                          "Number of observations in a sample")
