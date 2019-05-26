@@ -76,12 +76,14 @@ def list2sparsetensor(list_feat, feat_col_mapper):
     for row, cur_list in enumerate(list_feat):
         if isinstance(cur_list, list):
             for cate in cur_list:
-                indices.append([row, feat_col_mapper[cate]])
-                value.append(cate)
+                if cate != '' and cate != -1:
+                    indices.append([row, feat_col_mapper[cate]])
+                    value.append(cate)
         else:
             # for case where each element is not list but single one
-            indices.append([row, feat_col_mapper[cur_list]])
-            value.append(cur_list)
+            if cur_list != '' and cur_list != -1:
+                indices.append([row, feat_col_mapper[cur_list]])
+                value.append(cur_list)
             
 
     indices = tf.convert_to_tensor(indices, tf.int64)
@@ -279,7 +281,11 @@ def get_input_fn(mode, params, **input_additional_info):
         item_id_count = 0
         user_id_count = 0
         
+        item_indices_list = []
+        item_value_list = []
         
+        user_indices_list = []
+        user_value_list = []
         
         
         for star, adj_mat in enumerate(adj_mat_list):
@@ -311,14 +317,21 @@ def get_input_fn(mode, params, **input_additional_info):
             #left normalization
             user_value = np.ones(len(new_user_neigh_id)) * np.repeat(user_norm[user_id], user_neigh_num)
             
-            features['item_neigh_conv{}'.format(star)] = \
-                tf.SparseTensor(item_indices, item_value, dense_shape = [len(item_id), num_users])
-            features['user_neigh_conv{}'.format(star)] = \
-                tf.SparseTensor(user_indices, user_value, dense_shape = [len(user_id), num_items])
-
+            
+            item_indices_list.append(item_indices)
+            item_value_list.append(item_value)
+            user_indices_list.append(user_indices)
+            user_value_list.append(user_value)
+            
         new_user_id, user_id_count = new_id_mapper(user_id, user_dict, user_id_count)
         new_item_id, item_id_count = new_id_mapper(item_id, item_dict, item_id_count)
         
+        for star in range(5):
+            features['item_neigh_conv{}'.format(star)] = \
+                tf.SparseTensor(item_indices_list[star], item_value_list[star], dense_shape = [len(item_id), user_id_count])
+            features['user_neigh_conv{}'.format(star)] = \
+                tf.SparseTensor(user_indices_list[star], user_value_list[star], dense_shape = [len(user_id), item_id_count])
+
         user_indices = np.stack([np.arange(len(user_id)), new_user_id], axis = 1)
         user_value = np.ones(len(user_id))
         item_indices = np.stack([np.arange(len(item_id)), new_item_id], axis = 1)
@@ -332,7 +345,7 @@ def get_input_fn(mode, params, **input_additional_info):
         features['u_features'] = df2tensor(u_features, col_mapper, list(user_dict.keys()))
         
         
-        return features, tf.convert_to_tensor(cur_review[:,2], tf.int64)
+        return features, tf.convert_to_tensor(cur_review[:,2]-1, tf.int64)
 
     return _input_fn
     

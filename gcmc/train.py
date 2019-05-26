@@ -1,4 +1,4 @@
-from pipeline import preprocessing, get_input_fn, get_item_feature_columns, get_user_feature_columns, df2tensor
+from pipeline import preprocessing, get_input_fn, get_item_feature_columns, get_user_feature_columns, df2tensor, get_type_dict
 from estimator_gcmc import gcmc_model_fn
 
 
@@ -16,26 +16,22 @@ def main(argv):
             save_summary_steps=100)
 
     
-    file_dir = '/Users/Dreamland/Documents/University_of_Washington/STAT548/project/GraphGAN/yelp_dataset/'
+    #file_dir = '/Users/Dreamland/Documents/University_of_Washington/STAT548/project/GraphGAN/yelp_dataset/'
+    file_dir = '/home/FDSM_lhn/GraphGAN/yelp_dataset/'
     #file_dir = 'yelp_dataset/'
     adj_mat_list, user_norm, item_norm,\
                 u_features, v_features, new_reviews, miscellany,\
-                N, num_train, num_val, num_test, train_idx, val_idx, test_idx = preprocessing(file_dir, verbose=True, test= True)
+                N, num_train, num_val, num_test, train_idx, val_idx, test_idx = preprocessing(file_dir, verbose=True, test= False)
 
     
     # TODO: check
-    v_features_tensor_dict = df2tensor(v_features,  miscellany['col_mapper'])
-    u_features_tensor_dict = df2tensor(u_features,  miscellany['col_mapper'])
     
-    item_type_dict = {k:v.dtype for k, v in v_features_tensor_dict.items()}
+    item_type_dict = get_type_dict(v_features)
+    user_type_dict = get_type_dict(u_features)
+    
     item_feature_columns = get_item_feature_columns(miscellany['business_vocab_list'], item_type_dict)
-
-    user_type_dict = {k:v.dtype for k, v in u_features_tensor_dict.items()}
     user_feature_columns = get_user_feature_columns(user_type_dict)
     
-    del v_features_tensor_dict
-    del u_features_tensor_dict
-
     input_additional_info = {}
     for name in ['adj_mat_list', 'user_norm', 'item_norm', 'new_reviews', 'num_train', 'num_val','num_test', 'train_idx', 'val_idx', 'test_idx']:
         exec("input_additional_info[{0!r}] = {0}".format(name))
@@ -44,8 +40,6 @@ def main(argv):
     input_additional_info['v_features'] = v_features
     input_additional_info['col_mapper'] = miscellany['col_mapper']
 
-    
-    
     
     model_params = tf.contrib.training.HParams(
     num_users = len(user_norm),
