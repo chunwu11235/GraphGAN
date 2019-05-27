@@ -55,8 +55,6 @@ def gcmc_model_fn(features, labels, mode, params):
     user_features_all = features['u_features']
     item_features_all = features['v_features']
     
-    
-    
     user_features_all = tf.feature_column.input_layer(user_features_all,
                                                       params.user_features_columns)
     item_features_all = tf.feature_column.input_layer(item_features_all,
