@@ -17,7 +17,10 @@ import numpy as np
 import tensorflow as tf
 
 def main(argv):
-        
+    
+    tf.logging.set_verbosity(tf.logging.INFO)
+
+
     #file_dir = '/Users/Dreamland/Documents/University_of_Washington/STAT548/project/GraphGAN/yelp_dataset/'
     file_dir = '/home/FDSM_lhn/GraphGAN/yelp_dataset/'
     #file_dir = 'yelp_dataset/'
@@ -58,7 +61,7 @@ def main(argv):
     for feat_col in temp_item_feature_columns:
         if 'categories' not in feat_col.name:
             item_feature_columns.append(feat_col)
-    
+   
 
 
     model_params = tf.contrib.training.HParams(
@@ -104,7 +107,7 @@ if __name__ == "__main__":
 
     flags.DEFINE_integer('max_steps',10,
     "Number of training steps.")
-    flags.DEFINE_integer('batch_size', 64,
+    flags.DEFINE_integer('batch_size', 10,
     "Number of observations in a sample")
     flags.DEFINE_float('learning_rate', 0.001,
                          "Number of observations in a sample")

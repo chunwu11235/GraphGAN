@@ -40,7 +40,8 @@ def get_item_feature_columns(business_vocab_list, item_type_dict):
         elif k in ['stars']:
             col = bucketized_column(numeric_column(k, default_value = 0, dtype= item_type_dict[k]), bucketized_boundary[k])
         elif k in ['categories', 'city']:
-            col = embedding_column(categorical_column_with_vocabulary_list(k, sorted(v), default_value = -1, dtype= item_type_dict[k]), dimension = embedding_size[k])
+            col = embedding_column(categorical_column_with_vocabulary_list(k, sorted(v), default_value = -1, dtype= item_type_dict[k]), \
+                    dimension = embedding_size[k], combiner = 'mean')
         else:   
             col = indicator_column(categorical_column_with_vocabulary_list(k, sorted(v), default_value = -1, dtype= item_type_dict[k]))
 
@@ -72,25 +73,45 @@ def get_user_feature_columns(user_features_list):
 def list2sparsetensor(list_feat, feat_col_mapper):
     indices = []
     value = []
+    max_count =0
     
     for row, cur_list in enumerate(list_feat):
+        count = 0
         if isinstance(cur_list, list):
             for cate in cur_list:
-                if cate != '' and cate != -1:
-                    indices.append([row, feat_col_mapper[cate]])
-                    value.append(cate)
+                indices.append([row, count])
+                value.append(cate.encode('utf8'))
+                count += 1
         else:
             # for case where each element is not list but single one
-            if cur_list != '' and cur_list != -1:
-                indices.append([row, feat_col_mapper[cur_list]])
-                value.append(cur_list)
-            
+            indices.append([row, count])
+            value.append(cur_list.encode('utf8'))
+            count += 1
+        max_count = max(max_count, count) 
 
     indices = tf.convert_to_tensor(indices, tf.int64)
     value = tf.convert_to_tensor(value, tf.string) 
     
-    return tf.SparseTensor(indices, value, dense_shape = [len(list_feat), len(feat_col_mapper)])
+    return tf.SparseTensor(indices, value, dense_shape = [len(list_feat), max_count])
     
+def list2sparsetensor2(list_feat):
+    parsed_example = []
+    feature = {
+            'categories':tf.VarLenFeature(tf.string)
+            }
+    for sub_list in list_feat:
+        try:
+            sub_list = [k.encode('utf-8') for k in sub_list]
+        except:
+            sub_list = [sub_list.encode('utf-8') ]
+
+        example = tf.train.Example(features=tf.train.Features(feature = {
+            'categories':tf.train.Feature(bytes_list= tf.train.BytesList(value=sub_list))
+            }))
+        
+        parsed_example.append(example.SerializeToString())
+    result = tf.parse_example(parsed_example, feature)
+    return result['categories']
 
 def df2tensor(features, col_mapper, slice_list):
     
@@ -102,7 +123,26 @@ def df2tensor(features, col_mapper, slice_list):
     #col_mapper is only useful for item feature
     for k, v in item_datatypes:
         if k in ['categories'] :
-            result_dict[k] = list2sparsetensor(result_dict[k], col_mapper[k])
+            #result_dict[k] = list2sparsetensor2(result_dict[k], col_mapper[k])
+            list_feat = result_dict[k] 
+            parsed_example = []
+            feature = {
+            'categories':tf.VarLenFeature(tf.string)
+            }
+            for sub_list in list_feat:
+                try:
+                    sub_list = [k.encode('utf-8') for k in sub_list]
+                except:
+                    sub_list = [sub_list.encode('utf-8') ]
+
+                example = tf.train.Example(features=tf.train.Features(feature = {
+                'categories':tf.train.Feature(bytes_list= tf.train.BytesList(value=sub_list))
+            }))
+        
+                parsed_example.append(example.SerializeToString())
+            result = tf.parse_example(parsed_example, feature)
+
+            result_dict[k] = result['categories'] 
             continue
         if v == np.object:
             result_dict[k] = tf.convert_to_tensor(result_dict[k], dtype = tf.string)

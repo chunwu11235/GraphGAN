@@ -17,7 +17,7 @@ import numpy as np
 import tensorflow as tf
 
 def main(argv):
-        
+    tf.logging.set_verbosity(tf.logging.INFO)    
     #file_dir = '/Users/Dreamland/Documents/University_of_Washington/STAT548/project/GraphGAN/yelp_dataset/'
     file_dir = '/home/FDSM_lhn/GraphGAN/yelp_dataset/'
     #file_dir = 'yelp_dataset/'
@@ -54,6 +54,14 @@ def main(argv):
     input_additional_info['col_mapper'] = miscellany['col_mapper']
 
     
+    temp_item_feature_columns = item_feature_columns
+
+    item_feature_columns =[]
+    for feat_col in temp_item_feature_columns:
+        if 'categories' not in feat_col.name:
+            item_feature_columns.append(feat_col)
+    
+    
     model_params = tf.contrib.training.HParams(
     num_users = len(user_norm),
     num_items = len(item_norm),
@@ -70,10 +78,7 @@ def main(argv):
     user_features_columns = user_feature_columns,
     item_features_columns = item_feature_columns)
     
-    
-    
-    input_fn=  get_input_fn(tf.estimator.ModeKeys.TRAIN, model_params, **input_additional_info)
-        
+
     estimator = tf.estimator.Estimator(
             gcmc_model_fn,
             config=run_config,
