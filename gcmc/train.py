@@ -104,31 +104,31 @@ if __name__ == "__main__":
     flags = tf.app.flags
     FLAGS = flags.FLAGS
 
-    flags.DEFINE_integer('max_steps',10,
+    flags.DEFINE_integer('max_steps',1000,
     "Number of training steps.")
     flags.DEFINE_integer('batch_size', 64,
     "Number of observations in a sample")
-    flags.DEFINE_float('learning_rate', 0.001,
+    flags.DEFINE_float('learning_rate', 0.00001,
                          "Number of observations in a sample")
     flags.DEFINE_integer('classes', 5,
                          "Number of observations in a sample")
-    flags.DEFINE_integer('dim_user_raw', 20,
+    flags.DEFINE_integer('dim_user_raw', 32,
                          "Number of observations in a sample")
-    flags.DEFINE_integer('dim_item_raw', 20,
+    flags.DEFINE_integer('dim_item_raw', 64,
                          "Number of observations in a sample")
-    flags.DEFINE_integer('dim_user_conv', 30,
+    flags.DEFINE_integer('dim_user_conv', 128,
                          "Number of observations in a sample")
-    flags.DEFINE_integer('dim_item_conv', 30,
+    flags.DEFINE_integer('dim_item_conv', 128,
                          "Number of observations in a sample")
-    flags.DEFINE_integer('dim_user_embedding', 30,
+    flags.DEFINE_integer('dim_user_embedding', 64,
                          "Number of observations in a sample")
-    flags.DEFINE_integer('dim_item_embedding', 30,
+    flags.DEFINE_integer('dim_item_embedding', 64,
                          "Number of observations in a sample")
     #directory of various files
     flags.DEFINE_string('model_dir', 'tmp/',
     "Path for storing the model checkpoints.")
 
-    flags.DEFINE_float('dropout',0.2,
+    flags.DEFINE_float('dropout', 0.5,
     "Dropout used for lstm layers.")
 
     tf.app.run(main=main)
