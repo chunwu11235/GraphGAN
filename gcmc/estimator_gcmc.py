@@ -65,10 +65,10 @@ def gcmc_model_fn(features, labels, mode, params):
                                                       params.item_features_columns)
 
     # batch norm
-    user_features_all = tf.layers.batch_normalization(user_features_all,
-                                                      training=training)
-    item_features_all = tf.layers.batch_normalization(item_features_all,
-                                                      training=training)
+    # user_features_all = tf.layers.batch_normalization(user_features_all,
+    #                                                   training=training)
+    # item_features_all = tf.layers.batch_normalization(item_features_all,
+    #                                                   training=training)
 
     #user_features_all = tf.constant(1, shape=[9366, 18], dtype=tf.float64)
     #item_features_all = tf.constant(1, shape=[4618, 175], dtype=tf.float64)
