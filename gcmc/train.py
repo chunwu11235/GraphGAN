@@ -106,23 +106,23 @@ if __name__ == "__main__":
 
     flags.DEFINE_integer('max_steps',1000,
     "Number of training steps.")
-    flags.DEFINE_integer('batch_size', 64,
+    flags.DEFINE_integer('batch_size', 10000,
     "Number of observations in a sample")
-    flags.DEFINE_float('learning_rate', 0.0001,
+    flags.DEFINE_float('learning_rate', 0.01,
                          "Number of observations in a sample")
     flags.DEFINE_integer('classes', 5,
                          "Number of observations in a sample")
-    flags.DEFINE_integer('dim_user_raw', 32,
+    flags.DEFINE_integer('dim_user_raw', 64,
                          "Number of observations in a sample")
-    flags.DEFINE_integer('dim_item_raw', 32,
+    flags.DEFINE_integer('dim_item_raw', 256,
                          "Number of observations in a sample")
-    flags.DEFINE_integer('dim_user_conv', 64,
+    flags.DEFINE_integer('dim_user_conv', 128,
                          "Number of observations in a sample")
-    flags.DEFINE_integer('dim_item_conv', 64,
+    flags.DEFINE_integer('dim_item_conv', 128,
                          "Number of observations in a sample")
-    flags.DEFINE_integer('dim_user_embedding', 32,
+    flags.DEFINE_integer('dim_user_embedding', 64,
                          "Number of observations in a sample")
-    flags.DEFINE_integer('dim_item_embedding', 32,
+    flags.DEFINE_integer('dim_item_embedding', 64,
                          "Number of observations in a sample")
     #directory of various files
     flags.DEFINE_string('model_dir', 'tmp/',

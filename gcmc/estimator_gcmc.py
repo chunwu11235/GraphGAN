@@ -92,17 +92,32 @@ def gcmc_model_fn(features, labels, mode, params):
     item_features_batch = tf.sparse.matmul(features['item_id'],
                                            item_features_all)
 
+    user_features_batch = tf.layers.batch_normalization(user_features_batch,
+                                                        training=training)
+    item_features_batch = tf.layers.batch_normalization(item_features_batch,
+                                                        training=training)
+
     """convolution"""
     item_conv = []
     user_conv = []
     for star in range(params.classes):
         # TODO: node dropout
-        item_conv.append(tf.sparse.matmul(features['item_neigh_conv{}'.format(star)],
-                         user_features_all)
-                         )
-        user_conv.append(tf.sparse.matmul(features['user_neigh_conv{}'.format(star)],
-                         item_features_all)
-                         )
+        v_conv = tf.sparse.matmul(features['item_neigh_conv{}'.format(star)],
+                                  user_features_all)
+        v_conv = tf.layers.batch_normalization(v_conv, training=training)
+        item_conv.append(v_conv)
+
+        u_conv = tf.sparse.matmul(features['user_neigh_conv{}'.format(star)],
+                                  item_features_all)
+        u_conv = tf.layers.batch_normalization(u_conv, training=training)
+        user_conv.append(u_conv)
+
+        # item_conv.append(tf.sparse.matmul(features['item_neigh_conv{}'.format(star)],
+        #                  user_features_all)
+        #                  )
+        # user_conv.append(tf.sparse.matmul(features['user_neigh_conv{}'.format(star)],
+        #                  item_features_all)
+        #                  )
 
 
     """
