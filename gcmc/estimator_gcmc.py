@@ -52,6 +52,10 @@ import tensorflow as tf
 
 
 def gcmc_model_fn(features, labels, mode, params):
+    training = False
+    if mode == tf.estimator.ModeKeys.TRAIN:
+        training = True
+
     user_features_all = features['u_features']
     item_features_all = features['v_features']
     
@@ -60,6 +64,11 @@ def gcmc_model_fn(features, labels, mode, params):
     item_features_all = tf.feature_column.input_layer(item_features_all,
                                                       params.item_features_columns)
 
+    # batch norm
+    user_features_all = tf.layers.batch_normalization(user_features_all,
+                                                      training=training)
+    item_features_all = tf.layers.batch_normalization(item_features_all,
+                                                      training=training)
 
     #user_features_all = tf.constant(1, shape=[9366, 18], dtype=tf.float64)
     #item_features_all = tf.constant(1, shape=[4618, 175], dtype=tf.float64)
@@ -181,6 +190,13 @@ def gcmc_model_fn(features, labels, mode, params):
     """
     decoder
     """
+
+    item_embedding = tf.layers.batch_normalization(item_embedding,
+                                                   training=training)
+
+    user_embedding = tf.layers.batch_normalization(user_embedding,
+                                                   training=training)
+
     weights_decoder = []
     with tf.variable_scope('decoder'):
         for i in range(params.classes):
