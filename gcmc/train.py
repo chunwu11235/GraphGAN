@@ -88,10 +88,11 @@ def main(argv):
         tf.estimator.ModeKeys.TRAIN, model_params,
         **input_additional_info), max_steps=FLAGS.max_steps)
 
+    num_steps = num_val//model_params.batch_size
     eval_spec = tf.estimator.EvalSpec(input_fn=get_input_fn(
         tf.estimator.ModeKeys.EVAL,
         model_params,
-        **input_additional_info))
+        **input_additional_info), steps = num_steps)
 
     tf.estimator.train_and_evaluate(estimator, train_spec, eval_spec)
 
@@ -108,6 +109,7 @@ if __name__ == "__main__":
     "Number of training steps.")
     flags.DEFINE_integer('batch_size', 10000,
     "Number of observations in a sample")
+
     flags.DEFINE_float('learning_rate', 0.01,
                          "Number of observations in a sample")
     flags.DEFINE_integer('classes', 5,
