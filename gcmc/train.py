@@ -105,7 +105,7 @@ if __name__ == "__main__":
     flags = tf.app.flags
     FLAGS = flags.FLAGS
 
-    flags.DEFINE_integer('max_steps',1000,
+    flags.DEFINE_integer('max_steps',5000,
     "Number of training steps.")
     flags.DEFINE_integer('batch_size', 10000,
     "Number of observations in a sample")
