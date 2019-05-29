@@ -56,19 +56,6 @@ def get_user_feature_columns(user_type_dict):
         items_feature_columns.append(col)
     return items_feature_columns
 
-
-def get_user_feature_columns(user_features_list):
-    
-    useless_features = ['name', 'yelping_since', 'user_id']
-    
-    user_feature_columns = []
-    for k in user_features_list:
-        if k not in useless_features:
-            col = numeric_column(k, default_value = 0)
-            user_feature_columns.append(col)
-    
-    return user_feature_columns
-
 def list2sparsetensor(list_feat, feat_col_mapper):
     indices = []
     value = []
