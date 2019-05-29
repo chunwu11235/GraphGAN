@@ -183,6 +183,8 @@ def gcmc_model_fn(features, labels, mode, params):
                              units=params.dim_user_embedding,
                              activation=None,
                              kernel_initializer=tf.glorot_normal_initializer(),
+                             # TODO: regularizer
+                             regularizer=tf.contrib.layers.l1_regularizer(0.5),
                              use_bias=False
                              )
     h_user = tf.layers.dense(h_user,
@@ -198,6 +200,8 @@ def gcmc_model_fn(features, labels, mode, params):
                              units=params.dim_item_embedding,
                              activation=None,
                              kernel_initializer=tf.glorot_normal_initializer(),
+                             # TODO: regularizer
+                             regularizer=tf.contrib.layers.l1_regularizer(0.5),
                              use_bias=False
                              )
     h_item = tf.layers.dense(h_item,
@@ -229,7 +233,7 @@ def gcmc_model_fn(features, labels, mode, params):
                                       dtype=tf.float64,
                                       trainable=True,
                                       # TODO: check
-                                      regularizer=tf.contrib.layers.l1_regularizer(0.5),
+                                      regularizer=tf.contrib.layers.l1_regularizer(1),
                                       initializer=tf.glorot_normal_initializer()
                                       )
             weights_decoder.append(weights)
