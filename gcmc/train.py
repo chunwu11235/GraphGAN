@@ -59,23 +59,24 @@ def main(args):
 #     for feat_col in temp_item_feature_columns:
 #         if 'categories' not in feat_col.name:
 #             item_feature_columns.append(feat_col)
-    
-    
+
+
+
     model_params = tf.contrib.training.HParams(
     num_users = len(user_norm),
     num_items = len(item_norm),
     batch_size=args.batch_size,
     learning_rate=args.learning_rate,
-    dim_user_raw=10,
-    dim_item_raw=10,
-    dim_user_conv=10,
-    dim_item_conv=10,
-    dim_user_embedding=10,
-    dim_item_embedding=10,
+    dim_user_raw=args.dim_user_raw,
+    dim_item_raw=args.dim_item_raw,
+    dim_user_conv=args.dim_user_conv,
+    dim_item_conv=args.dim_item_conv,
+    dim_user_embedding=args.dim_user_embedding,
+    dim_item_embedding=args.dim_item_embedding,
     classes=5,
     dropout=args.dropout,
-    user_features_columns = user_feature_columns,
-    item_features_columns = item_feature_columns)
+    user_features_columns =user_feature_columns,
+    item_features_columns =item_feature_columns)
     
 
     estimator = tf.estimator.Estimator(
@@ -94,8 +95,7 @@ def main(args):
 
     tf.estimator.train_and_evaluate(estimator, train_spec, eval_spec)
 
-    
-    
+
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser()
@@ -104,6 +104,19 @@ if __name__ == "__main__":
     parser.add_argument('--dropout', default=0.2, type=float, help= "dropout rate")
     parser.add_argument('--max_steps', default = 10, type=int, help="Max steps to train in trainSpec")
     parser.add_argument('--model_dir', default = "tmp/", help="Directory to save model files")
-    args = parser.parse_args()
-    #args = parser.parse_args(['--max_steps=50'])
+
+    parser.add_argument('--dim_user_raw', default=32, type=int, help="num of hidden units")
+    parser.add_argument('--dim_item_raw', default=32, type=int, help="num of hidden units")
+    parser.add_argument('--dim_user_conv', default=32, type=int, help="num of hidden units")
+    parser.add_argument('--dim_item_conv', default=32, type=int, help="num of hidden units")
+    parser.add_argument('--dim_user_embedding', default=5*32, type=int, help="num of hidden units")
+    parser.add_argument('--dim_item_embedding', default=5*32, type=int, help="num of hidden units")
+
+    # #
+    # args = parser.parse_args()
+    args = parser.parse_args(['--max_steps=1000',
+                              '--batch_size=10000',
+                              '--learning_rate=0.01',
+                              '--dropout=0.5'
+                              ])
     main(args)

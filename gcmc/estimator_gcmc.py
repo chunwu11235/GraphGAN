@@ -52,6 +52,27 @@ import tensorflow as tf
 
 
 def gcmc_model_fn(features, labels, mode, params):
+    '''
+    :param features:
+    :param labels:
+    :param mode:
+    :param params:
+        params.user_features_columns
+        params.item_features_columns
+        params.classes
+        params.dim_user_raw
+        params.dim_item_raw
+        params.dim_user_conv
+        params.dim_item_conv
+        params.dim_user_embedding
+        params.dim_item_embedding
+        params.learning_rate
+        params.dropout
+    :return:
+    '''
+
+
+
     training = False
     if mode == tf.estimator.ModeKeys.TRAIN:
         training = True
