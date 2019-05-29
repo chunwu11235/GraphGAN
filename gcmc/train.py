@@ -34,7 +34,7 @@ def main(args):
     session_config.gpu_options.allow_growth = True
     session_config.gpu_options.allocator_type = 'BFC'
     run_config=tf.estimator.RunConfig(
-            model_dir=FLAGS.model_dir,
+            model_dir=args.model_dir,
     #        session_config = session_config,
             save_checkpoints_secs=20,
             save_summary_steps=100)
@@ -86,7 +86,7 @@ def main(args):
 
     train_spec = tf.estimator.TrainSpec(input_fn=get_input_fn(
         tf.estimator.ModeKeys.TRAIN, model_params,
-        **input_additional_info), max_steps=FLAGS.max_steps)
+        **input_additional_info), max_steps=args.max_steps)
 
     eval_spec = tf.estimator.EvalSpec(input_fn=get_input_fn(
         tf.estimator.ModeKeys.EVAL,
@@ -112,11 +112,10 @@ if __name__ == "__main__":
     parser.add_argument('--dim_user_embedding', default=5*32, type=int, help="num of hidden units")
     parser.add_argument('--dim_item_embedding', default=5*32, type=int, help="num of hidden units")
 
-    # #
-    # args = parser.parse_args()
-    args = parser.parse_args(['--max_steps=1000',
-                              '--batch_size=10000',
-                              '--learning_rate=0.01',
-                              '--dropout=0.5'
-                              ])
+    args = parser.parse_args()
+#     args = parser.parse_args(['--max_steps=1000',
+#                               '--batch_size=10000',
+#                               '--learning_rate=0.01',
+#                               '--dropout=0.5'
+#                               ])
     main(args)
