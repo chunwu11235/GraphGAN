@@ -56,28 +56,49 @@ def get_user_feature_columns(user_type_dict):
         items_feature_columns.append(col)
     return items_feature_columns
 
-def list2sparsetensor(list_feat, feat_col_mapper):
+def list2sparsetensor(list_feat):
     indices = []
     value = []
+    max_count =0
     
     for row, cur_list in enumerate(list_feat):
+        count = 0
         if isinstance(cur_list, list):
             for cate in cur_list:
-                if cate != '' and cate != -1:
-                    indices.append([row, feat_col_mapper[cate]])
-                    value.append(cate)
+                indices.append([row, count])
+                value.append(cate.encode('utf8'))
+                count += 1
         else:
             # for case where each element is not list but single one
-            if cur_list != '' and cur_list != -1:
-                indices.append([row, feat_col_mapper[cur_list]])
-                value.append(cur_list)
-            
+            indices.append([row, count])
+            value.append(cur_list.encode('utf8'))
+            count += 1
+        max_count = max(max_count, count) 
 
     indices = tf.convert_to_tensor(indices, tf.int64)
     value = tf.convert_to_tensor(value, tf.string) 
     
-    return tf.SparseTensor(indices, value, dense_shape = [len(list_feat), len(feat_col_mapper)])
-    
+    return tf.SparseTensorValue(indices, value, dense_shape = [len(list_feat), max_count])
+   
+#def list2sparsetensor2(list_feat):
+#    parsed_example = []
+#    feature = {
+#            'categories':tf.VarLenFeature(tf.string)
+#            }
+#    for sub_list in list_feat:
+#        try:
+#            sub_list = [k.encode('utf-8') for k in sub_list]
+#        except:
+#            sub_list = [sub_list.encode('utf-8') ]
+#
+#        example = tf.train.Example(features=tf.train.Features(feature = {
+#            'categories':tf.train.Feature(bytes_list= tf.train.BytesList(value=sub_list))
+#            }))
+#        
+#        parsed_example.append(example.SerializeToString())
+#    result = tf.parse_example(parsed_example, feature)
+#    return result['categories']
+#
 
 def df2tensor(features, col_mapper, slice_list):
     
@@ -85,21 +106,17 @@ def df2tensor(features, col_mapper, slice_list):
     
     new_features = features.loc[slice_list]
     result_dict = new_features.to_dict(orient = 'list')
-    
+    result_dict['categories'] = list2sparsetensor(result_dict["categories"]) 
     #col_mapper is only useful for item feature
-    for k, v in item_datatypes:
-        if k in ['categories', 'city'] :
-            result_dict[k] = list2sparsetensor(result_dict[k], col_mapper[k])
-            continue
-        if v == np.object:
-            # print(k)
-            # print(result_dict[k])
-            result_dict[k] = tf.convert_to_tensor(result_dict[k], dtype = tf.string)
-        elif v == np.float and k in ['stars', 'average_stars']:
-            result_dict[k] = tf.convert_to_tensor(result_dict[k], dtype = tf.float64)
-        else:
-            result_dict[k] = tf.convert_to_tensor(np.array(result_dict[k]).astype(np.int64), dtype = tf.int64)
-    
+    #for k, v in item_datatypes:
+    #    if k in ['categories'] :
+    #        result_dict[k] = list2sparsetensor(result_dict[k])
+    #        continue
+    #    if v == np.object or (v == np.float and k in ['stars', 'average_stars']):
+    #        result_dict[k] = result_dict[k], dtype = tf.string)
+    #    else:
+    #        result_dict[k] = tf.convert_to_tensor(np.array(result_dict[k]).astype(np.int64), dtype = tf.int64)
+    #
     return result_dict
 
 
@@ -124,8 +141,6 @@ def create_trainvaltest_split(N, verbose):
     if verbose:
         print("We have {} training rating, {} val rating and {}".format(split1, split2-split1, N- split2))
     
-    
-
     return split1, split2-split1, N- split2, train_idx, val_idx, test_idx
 
 
@@ -193,148 +208,89 @@ def new_id_mapper(id_list, mapper, cur_count):
     return new_id_list, cur_count
     
 
-    
-def get_input_fn(mode, params, **input_additional_info):
-    """Creates an input_fn that stores all the data in memory.
-    Args:
-     mode: one of tf.contrib.learn.ModeKeys.{TRAIN, INFER, EVAL}
-    params: tf.contrib.training.HParams including batch_size, etc
-    Returns:
-      A valid input_fn for the model estimator.
-    """
-    
-    #input_additional_info
-    adj_mat_list = input_additional_info['adj_mat_list']
-    user_norm = input_additional_info['user_norm']
-    item_norm = input_additional_info['item_norm']
-    new_reviews = input_additional_info['new_reviews']
-    num_train = input_additional_info['num_train']
-    num_val = input_additional_info['num_val']
-    num_test = input_additional_info['num_test']
-    train_idx = input_additional_info['train_idx']
-    val_idx = input_additional_info['val_idx']
-    test_idx = input_additional_info['test_idx']
 
-    u_features = input_additional_info['u_features']
-    v_features = input_additional_info['v_features']
-    col_mapper = input_additional_info['col_mapper']
+def construct_feed_dict(placeholders, cur_review, additional_info, params):
+    user_id = cur_review[:, 0]
+    item_id = cur_review[:, 1]
     
     
-    def _input_fn():
-        """Estimator's input_fn.
-        Returns:
-        A tuple of:
-        - Dictionary of string feature name to `Tensor`.
-        - `Tensor` of target labels.
-        """
-        if mode == tf.estimator.ModeKeys.TRAIN:
-            cur_size = num_train
-            cur_idx = train_idx
-        elif mode == tf.estimator.ModeKeys.EVAL:
-            cur_size = num_val
-            cur_idx = val_idx
-        else:
-            cur_size = num_test
-            cur_idx = test_idx
+    num_users = params.num_users
+    num_items = params.num_items
+    
+    item_dict = OrderedDict()
+    user_dict = OrderedDict()
+    item_id_count = 0
+    user_id_count = 0
+    
+    item_indices_list = []
+    item_value_list = []
+    
+    user_indices_list = []
+    user_value_list = []
+    
+    
+    for star, adj_mat in enumerate(additional_info["adj_mat_list"]):
+        item_sparse = adj_mat[:, item_id]
+        user_sparse = adj_mat[user_id, :]
         
-        dataset = tf.data.Dataset.range(cur_size)
-        dataset = dataset.repeat()
-        dataset = dataset.shuffle(buffer_size=cur_size)
-        dataset = dataset.batch(params.batch_size)
-        idx = dataset.make_one_shot_iterator().get_next()
+        item_neigh_id = item_sparse.getH().nonzero()[1]
+        user_neigh_id = user_sparse.nonzero()[1]
+        
+        new_item_neigh_id = np.zeros(len(item_neigh_id))
+        new_user_neigh_id = np.zeros(len(item_neigh_id))
+        
+        
+        new_item_neigh_id, user_id_count = new_id_mapper(item_neigh_id, user_dict, user_id_count)
+        new_user_neigh_id, item_id_count = new_id_mapper(user_neigh_id, item_dict, item_id_count)
+                    
+        item_neigh_num = item_sparse.sum(axis=0).A1
+        user_neigh_num = user_sparse.sum(axis=1).A1
+        
+        item_row = np.repeat(np.arange(len(item_id)), item_neigh_num)
+        
+        item_indices = np.stack([item_row, new_item_neigh_id], axis = 1)
+        #left normalization
+        item_value = np.repeat(additional_info["item_norm"][item_id], item_neigh_num)
+        
+        
+        user_row = np.repeat(np.arange(len(user_id)), user_neigh_num)
+        user_indices = np.stack([user_row, new_user_neigh_id], axis = 1)
+        #left normalization
+        user_value = np.repeat(additional_info["user_norm"][user_id], user_neigh_num)
+        
+        
+        item_indices_list.append(item_indices)
+        item_value_list.append(item_value)
+        user_indices_list.append(user_indices)
+        user_value_list.append(user_value)
+        
+    new_user_id, user_id_count = new_id_mapper(user_id, user_dict, user_id_count)
+    new_item_id, item_id_count = new_id_mapper(item_id, item_dict, item_id_count)
+    
+    result_dict = {}
+    for star in range(5):
+        result_dict[placeholders['item_neigh_conv{}'.format(star)]]= \
+            tf.SparseTensorValue(item_indices_list[star], item_value_list[star].astype(np.float64), dense_shape = [len(item_id), user_id_count])
+        result_dict[placeholders['user_neigh_conv{}'.format(star)]]= \
+            tf.SparseTensorValue(user_indices_list[star], user_value_list[star].astype(np.float64), dense_shape = [len(user_id), item_id_count])
 
-        # TODO: check this
-        with tf.Session().as_default():
-            idx = idx.eval().squeeze()
-
-        # idx = idx.eval().squeeze()
-        
-        size = len(idx)
-        rating_idx = cur_idx[idx]
-        
-        features = {}
-        miscellany_data = dict()
-        cur_review = new_reviews[rating_idx]
-        
-        user_id = cur_review[:, 0]
-        item_id = cur_review[:, 1]
-        
-        
-        num_users = params.num_users
-        num_items = params.num_items
-    
-        item_dict = OrderedDict()
-        user_dict = OrderedDict()
-        item_id_count = 0
-        user_id_count = 0
-        
-        item_indices_list = []
-        item_value_list = []
-        
-        user_indices_list = []
-        user_value_list = []
-        
-        
-        for star, adj_mat in enumerate(adj_mat_list):
-            item_sparse = adj_mat[:, item_id]
-            user_sparse = adj_mat[user_id, :]
-            
-            item_neigh_id = item_sparse.getH().nonzero()[1]
-            user_neigh_id = user_sparse.nonzero()[1]
-            
-            new_item_neigh_id = np.zeros(len(item_neigh_id))
-            new_user_neigh_id = np.zeros(len(item_neigh_id))
-            
-            
-            new_item_neigh_id, user_id_count = new_id_mapper(item_neigh_id, user_dict, user_id_count)
-            new_user_neigh_id, item_id_count = new_id_mapper(user_neigh_id, item_dict, item_id_count)
-                        
-            item_neigh_num = item_sparse.sum(axis=0).A1
-            user_neigh_num = user_sparse.sum(axis=1).A1
-            
-            item_row = np.repeat(np.arange(len(item_id)), item_neigh_num)
-            
-            item_indices = np.stack([item_row, new_item_neigh_id], axis = 1)
-            #left normalization
-            item_value = np.ones(len(new_item_neigh_id))* np.repeat(item_norm[item_id], item_neigh_num)
-            
-            
-            user_row = np.repeat(np.arange(len(user_id)), user_neigh_num)
-            user_indices = np.stack([user_row, new_user_neigh_id], axis = 1)
-            #left normalization
-            user_value = np.ones(len(new_user_neigh_id)) * np.repeat(user_norm[user_id], user_neigh_num)
-            
-            
-            item_indices_list.append(item_indices)
-            item_value_list.append(item_value)
-            user_indices_list.append(user_indices)
-            user_value_list.append(user_value)
-            
-        new_user_id, user_id_count = new_id_mapper(user_id, user_dict, user_id_count)
-        new_item_id, item_id_count = new_id_mapper(item_id, item_dict, item_id_count)
-        
-        for star in range(5):
-            features['item_neigh_conv{}'.format(star)] = \
-                tf.SparseTensor(item_indices_list[star], item_value_list[star], dense_shape = [len(item_id), user_id_count])
-            features['user_neigh_conv{}'.format(star)] = \
-                tf.SparseTensor(user_indices_list[star], user_value_list[star], dense_shape = [len(user_id), item_id_count])
-
-        user_indices = np.stack([np.arange(len(user_id)), new_user_id], axis = 1)
-        user_value = np.ones(len(user_id))
-        item_indices = np.stack([np.arange(len(item_id)), new_item_id], axis = 1)
-        item_value = np.ones(len(item_id))
-
-        features['user_id'] = tf.SparseTensor(user_indices, user_value, dense_shape = [len(user_id), user_id_count])
-        features['item_id'] = tf.SparseTensor(item_indices, item_value, dense_shape = [len(item_id), item_id_count])
-        
-        
-        features['v_features'] = df2tensor(v_features, col_mapper, list(item_dict.keys()))
-        features['u_features'] = df2tensor(u_features, col_mapper, list(user_dict.keys()))
-        
-        
-        return features, tf.convert_to_tensor(cur_review[:,2]-1, tf.int64)
-
-    return _input_fn
+    user_indices = np.stack([np.arange(len(user_id)), new_user_id], axis = 1)
+    user_value = np.ones(len(user_id))
+    item_indices = np.stack([np.arange(len(item_id)), new_item_id], axis = 1)
+    item_value = np.ones(len(item_id))
     
     
+    result_dict[placeholders['user_id']]= tf.SparseTensorValue(user_indices, user_value.astype(np.float64), dense_shape = [len(user_id), user_id_count])
+    result_dict[placeholders['item_id']]= tf.SparseTensorValue(item_indices, item_value.astype(np.float64), dense_shape = [len(item_id), item_id_count])
     
+    v_tensor_dict = df2tensor(v_features, list(item_dict.keys())) 
+    u_tensor_dict = df2tensor(u_features, list(user_dict.keys()))
+
+    for key in v_tensor_dict:
+        result_dict[placeholders['v_features'][key]] = v_tensor_dict[key]
+    for key in u_tensor_dict:
+        result_dict[placeholders['u_features'][key]] = u_tensor_dict[key]
+
+    result_dict[placeholders['labels']] =   tf.convert_to_tensor(cur_review[:,2]-1, tf.int64)
+    
+    return result_dict 
