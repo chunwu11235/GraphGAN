@@ -7,6 +7,20 @@ import tensorflow as tf
 from tensorflow.feature_column import indicator_column,numeric_column, embedding_column, bucketized_column,categorical_column_with_vocabulary_list
 
 
+
+def data_iterator(reviews_data, batch_size):
+    # shuffle labels and features
+    max_idx = len(data)
+    idxs = np.arange(0, max_idx)
+    np.random.shuffle(idxs)
+
+    # Does not yield last remainder of size less than batch_size
+    for i in range(max_idx//batch_size +1):
+        end = min((i+1)* batch_size, max_idx)
+        data_batch = reviews_data[idxs[i*batch_size:end]]
+        yield data_batch
+
+
 def get_type_dict(features):
     item_datatypes = features.dtypes.iteritems()
     
