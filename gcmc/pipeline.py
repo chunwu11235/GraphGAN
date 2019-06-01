@@ -75,8 +75,8 @@ def list2sparsetensor(list_feat):
             count += 1
         max_count = max(max_count, count) 
 
-    indices = tf.convert_to_tensor(indices, tf.int64)
-    value = tf.convert_to_tensor(value, tf.string) 
+#     indices = tf.convert_to_tensor(indices, tf.int64)
+#     value = tf.convert_to_tensor(value, tf.string) 
     
     return tf.SparseTensorValue(indices, value, dense_shape = [len(list_feat), max_count])
    
@@ -100,18 +100,16 @@ def list2sparsetensor(list_feat):
 #    return result['categories']
 #
 
-def df2tensor(features, col_mapper, slice_list):
+def df2tensor(features, slice_list):
     
     item_datatypes = features.dtypes.iteritems()
     
     new_features = features.loc[slice_list]
     result_dict = new_features.to_dict(orient = 'list')
-    result_dict['categories'] = list2sparsetensor(result_dict["categories"]) 
     #col_mapper is only useful for item feature
-    #for k, v in item_datatypes:
-    #    if k in ['categories'] :
-    #        result_dict[k] = list2sparsetensor(result_dict[k])
-    #        continue
+    for k, v in item_datatypes:
+        if k in ['categories'] :
+            result_dict[k] = list2sparsetensor(result_dict[k])
     #    if v == np.object or (v == np.float and k in ['stars', 'average_stars']):
     #        result_dict[k] = result_dict[k], dtype = tf.string)
     #    else:
@@ -283,14 +281,14 @@ def construct_feed_dict(placeholders, cur_review, additional_info, params):
     result_dict[placeholders['user_id']]= tf.SparseTensorValue(user_indices, user_value.astype(np.float64), dense_shape = [len(user_id), user_id_count])
     result_dict[placeholders['item_id']]= tf.SparseTensorValue(item_indices, item_value.astype(np.float64), dense_shape = [len(item_id), item_id_count])
     
-    v_tensor_dict = df2tensor(v_features, list(item_dict.keys())) 
-    u_tensor_dict = df2tensor(u_features, list(user_dict.keys()))
+    v_tensor_dict = df2tensor(additional_info["v_features"], list(item_dict.keys())) 
+    u_tensor_dict = df2tensor(additional_info["u_features"], list(user_dict.keys()))
 
     for key in v_tensor_dict:
         result_dict[placeholders['v_features'][key]] = v_tensor_dict[key]
     for key in u_tensor_dict:
         result_dict[placeholders['u_features'][key]] = u_tensor_dict[key]
 
-    result_dict[placeholders['labels']] =   tf.convert_to_tensor(cur_review[:,2]-1, tf.int64)
+    result_dict[placeholders['labels']] =   cur_review[:,2]-1
     
     return result_dict 

@@ -1,4 +1,4 @@
-imbport os
+import os
 #os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 #os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 import logging
@@ -33,42 +33,28 @@ def main(args):
         placeholders['item_neigh_conv{}'.format(star)] = tf.sparse_placeholder(tf.float64)
         placeholders['user_neigh_conv{}'.format(star)] = tf.sparse_placeholder(tf.float64)
 
-    
-    
-   run_config=tf.estimator.RunConfig(
-            model_dir=FLAGS.model_dir,
-    #        session_config = session_config,
-            save_checkpoints_secs=20,
-            save_summary_steps=100)
+
 
     item_type_dict = get_type_dict(v_features)
     user_type_dict = get_type_dict(u_features)
 
     v_feature_placeholder_dict = {}
-    for k, v in item_type_dict:
+    for k, v in item_type_dict.items():
         if "categories" != k:
             v_feature_placeholder_dict[k] = tf.placeholder(v, shape = (None,))
     v_feature_placeholder_dict["categories"] = tf.sparse_placeholder(tf.string)
     
     u_feature_placeholder_dict = {}
-    for k, v in user_type_dict:
+    for k, v in user_type_dict.items():
         u_feature_placeholder_dict[k] = tf.placeholder(v, shape = (None,))
 
     item_feature_columns = get_item_feature_columns(miscellany['business_vocab_list'], item_type_dict)
     user_feature_columns = get_user_feature_columns(user_type_dict)
     
     additional_info = {}
-    for name in ['adj_mat_list', 'user_norm', 'item_norm']: 
+    for name in ['adj_mat_list', 'user_norm', 'item_norm', 'v_features', 'u_features']: 
         exec("additional_info[{0!r}] = {0}".format(name))
     
-
-    for name in ['adj_mat_list', 'user_norm', 'item_norm', 'new_reviews', 'num_train', 'num_val','num_test', 'train_idx', 'val_idx', 'test_idx']:
-        exec("input_additional_info[{0!r}] = {0}".format(name))
-    
-    input_additional_info['u_features'] = u_features
-    input_additional_info['v_features'] = v_features
-    input_additional_info['col_mapper'] = miscellany['col_mapper']
-
     
 #     temp_item_feature_columns = item_feature_columns
 #     item_feature_columns =[]
@@ -94,22 +80,11 @@ def main(args):
     item_features_columns = item_feature_columns)
     
 
-    estimator = tf.estimator.Estimator(
-            gcmc_model_fn,
-            config=run_config,
-            params=model_params)
-
-    train_spec = tf.estimator.TrainSpec(input_fn=get_input_fn(
-        tf.estimator.ModeKeys.TRAIN, model_params,
-        **input_additional_info), max_steps=FLAGS.max_steps)
-
-    eval_spec = tf.estimator.EvalSpec(input_fn=get_input_fn(
-        tf.estimator.ModeKeys.EVAL,
-        model_params,
-        **input_additional_info))
-
-    tf.estimator.train_and_evaluate(estimator, train_spec, eval_spec)
-
+    
+    
+    
+    
+    
     
     
 if __name__ == "__main__":
