@@ -13,8 +13,7 @@ class GCMC():
         self.training_op = None
 
         self.model_name = 'gcmc'
-        self.optimizer = tf.train.AdamOptimizer(learning_rate=params.learning_rate)
-        self.global_step = tf.Variable(0, trainable=False)
+        self.model_dir = params.model_dir
         self.build(placeholders, params)
 
     def build(self, placeholders, params):
@@ -143,14 +142,19 @@ class GCMC():
         tf.summary.scalar('accuracy', self.accuracy)
 
         # training
-        self.training_op = self.optimizer.minimize(self.loss, global_step=self.global_step)
+        optimizer = tf.train.AdamOptimizer(learning_rate=params.learning_rate)
+        self.training_op = optimizer.minimize(self.loss)
 
     def save(self, sess=None):
         if not sess:
-            raise AttributeError("TensorFlow session not provided.")
+            raise AttributeError("TensorFlow session is not provided.")
         saver = tf.train.Saver()
-        save_path = saver.save(sess, '{}{}{}.ckpt'.format(self.model_dir, self.model_name, self.global_step.eval()))
-        print("Model saved in file: %s" % save_path)
+        save_path = saver.save(sess, '{}{}_{}.ckpt'.format(self.model_dir,
+                                                           self.model_name,
+                                                           tf.train.get_global_step()
+                                                           )
+                               )
+        print("Model is saved in file: %s" % save_path)
 
 
 
