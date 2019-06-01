@@ -5,8 +5,10 @@ import logging
 #tf.get_logger().setLevel(logging.ERROR)
 #logging.getLogger('tensorflow').setLevel(logging.ERROR)
 
-from pipeline import preprocessing, get_input_fn, get_item_feature_columns, get_user_feature_columns, df2tensor, get_type_dict
+from pipeline import preprocessing, get_item_feature_columns, get_user_feature_columns, df2tensor, get_type_dict, construct_feed_dict
 from utils import data_iterator, progress_bar
+from gcmc_model import GCMC as gcmc_model
+
 
 
 import functools
@@ -52,6 +54,9 @@ def main(args):
     u_feature_placeholder_dict = {}
     for k, v in user_type_dict.items():
         u_feature_placeholder_dict[k] = tf.placeholder(v, shape = (None,))
+
+    placeholders['u_features'] = u_feature_placeholder_dict
+    placeholders['v_features'] = v_feature_placeholder_dict
 
     item_feature_columns = get_item_feature_columns(miscellany['business_vocab_list'], item_type_dict)
     user_feature_columns = get_user_feature_columns(user_type_dict)
@@ -107,13 +112,13 @@ def main(args):
                              
                 try:
                     while True:
-                        train_reviews = train_data_generator.next()
+                        train_reviews = next(train_data_generator)
                         train_count = len(train_reviews)
-                        train_feed_dict = construct_feed_dict(placeholders,train_reviews ,additional_info ,model_params))
-                        train_result =session.run([model.training_op, model.loss, model.accuracy], train_feed_dict)
+                        train_feed_dict = construct_feed_dict(placeholders,train_reviews ,additional_info ,model_params)
+                        train_result =sess.run([model.training_op, model.loss, model.accuracy], train_feed_dict)
                         
                         
-                        if tf.train.get_global_step() % args.summary_steps == 0:
+                        if model.global_step.eval() % args.summary_steps == 0:
                             print("Start Evaluation:") 
                             val_data_generator = data_iterator(new_reviews[val_idx], args.batch_size)
                             
@@ -123,10 +128,10 @@ def main(args):
                              
                             try:
                                 while True:
-                                    val_reviews = val_data_generator.next()
+                                    val_reviews = next(val_data_generator)
                                     val_count = len(val_reviews)
-                                    val_feed_dict = construct_feed_dict(placeholders,val_reviews ,additional_info ,model_params))
-                                    val_result = session.run([model.loss, model.accuracy], val_feed_dict)
+                                    val_feed_dict = construct_feed_dict(placeholders,val_reviews ,additional_info ,model_params)
+                                    val_result = sess.run([model.loss, model.accuracy], val_feed_dict)
                                     val_total_loss += val_result[0] * val_count
                                     val_total_accuracy += val_result[1] * val_count
                                     val_total += val_count 
@@ -140,14 +145,15 @@ def main(args):
                             val_accuracy = total_accuracy/num_val
                         
                         #if save:
+
                             '''
                             Save if we evaluate for 3 times or  model performs good 
                             '''
                         
                         
 
-                        train_total_loss += train_result[0] * train_count
-                        train_total_accuracy += train_result[1] * train_count
+                        train_total_loss += train_result[1] * train_count
+                        train_total_accuracy += train_result[2] * train_count
                         train_total += train_count 
                         progress_bar(train_total, num_train, 'Loss: %.3f | Acc: %.3f%% (%d/%d)' \
                                 % (train_total_loss/train_total, 100.*train_total_accuracy/train_total, train_total_accuracy, train_total))
@@ -164,9 +170,9 @@ if __name__ == "__main__":
     parser.add_argument('--batch_size', default=1024, type=int, help= "assign batchsize for training and eval")
     parser.add_argument('--learning_rate', default=0.001,type=float, help= "learning rate for training")
     parser.add_argument('--dropout', default=0.2, type=float, help= "dropout rate")
-    parser.add_argument('--summary_steps', default = 20, type=int, help="number of train steps before evaluation once")
+    parser.add_argument('--summary_steps', default = 200, type=int, help="number of train steps before evaluation once")
     parser.add_argument('--model_dir', default = "tmp/", help="Directory to save model files")
-    #parser.add_argument('--model_dir', default = "tmp/", help="Directory to save model files")
+    parser.add_argument('--Train', default = True, help="training or not")
     #parser.add_argument('--model_dir', default = "tmp/", help="Directory to save model files")
     #parser.add_argument('--model_dir', default = "tmp/", help="Directory to save model files")
 

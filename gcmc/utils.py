@@ -1,13 +1,29 @@
+import numpy as np
 import time
 import sys
 import os
 
 
-TOTAL_BAR_LENGTH = 25
+TOTAL_BAR_LENGTH = 40
 last_time = time.time()
 begin_time = last_time
 
 #https://stackoverflow.com/questions/10019456/usage-of-sys-stdout-flush-method
+
+def data_iterator(reviews_data, batch_size):
+    # shuffle labels and features
+    max_idx = len(reviews_data)
+    idxs = np.arange(0, max_idx)
+    np.random.shuffle(idxs)
+
+    # Does not yield last remainder of size less than batch_size
+    for i in range(max_idx//batch_size +1):
+        end = min((i+1)* batch_size, max_idx)
+        data_batch = reviews_data[idxs[i*batch_size:end]]
+        yield data_batch
+
+
+
 def progress_bar(current, total, msg=None):
     global last_time, begin_time
     if current == 0:

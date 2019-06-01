@@ -22,6 +22,7 @@ class GCMC():
         :param params:
         :return:
         """
+        self.global_step = tf.Variable(0, trainable=False, name = 'global_step')
         user_features_all = tf.feature_column.input_layer(placeholders['u_features'],
                                                           params.user_features_columns)
         item_features_all = tf.feature_column.input_layer(placeholders['v_features'],
@@ -143,7 +144,7 @@ class GCMC():
 
         # training
         optimizer = tf.train.AdamOptimizer(learning_rate=params.learning_rate)
-        self.training_op = optimizer.minimize(self.loss)
+        self.training_op = optimizer.minimize(self.loss, global_step = self.global_step)
 
     def save(self, sess=None):
         if not sess:
