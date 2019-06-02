@@ -1,13 +1,13 @@
 import os
 #os.environ['CUDA_VISIBLE_DEVICES'] = '0'
-#os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import logging
 #tf.get_logger().setLevel(logging.ERROR)
-#logging.getLogger('tensorflow').setLevel(logging.ERROR)
+logging.getLogger('tensorflow').setLevel(logging.ERROR)
 
 from pipeline import preprocessing, get_item_feature_columns, get_user_feature_columns, df2tensor, get_type_dict, construct_feed_dict
 from utils import data_iterator, progress_bar
-from gcmc_model import GCMC as gcmc_model
+from model import GCMC as gcmc_model
 
 import functools
 import sys
@@ -32,7 +32,7 @@ def assign_to_device(device, ps_device='/cpu:0'):
 
 
 def main(args):    
-    tf.logging.set_verbosity(tf.logging.INFO)    
+    tf.logging.set_verbosity(tf.logging.ERROR)    
     #file_dir = '/Users/Dreamland/Documents/University_of_Washington/STAT548/project/GraphGAN/yelp_dataset/'
     file_dir = '/home/FDSM_lhn/GraphGAN/yelp_dataset/'
     #file_dir = 'yelp_dataset/'
@@ -128,14 +128,17 @@ def main(args):
             merged_summary = tf.summary.merge_all()
         
 
-    with tf.Session(config=tf.ConfigProto(log_device_placement=True, allow_soft_placement=True)) as sess:
+    with tf.Session(config=tf.ConfigProto(log_device_placement=False, allow_soft_placement=True)) as sess:
         if args.Train:
             sess.run(tf.global_variables_initializer())
             sess.run(tf.tables_initializer()) 
    
             
             if args.continue_training:
-                model.load(sess) 
+                if args.continue_training == -1:
+                    model.load(sess) 
+                else: 
+                    model.load(sess, args.continue_training)
                 print('Continue from previous checkout,current step is {}'.format(model.global_step.eval())) 
 
             train_summary_writer = tf.summary.FileWriter(args.model_dir+'/train') 
@@ -160,7 +163,7 @@ def main(args):
                         
                         
                         if model.global_step.eval() % args.summary_steps == 0:
-                            print("Start Evaluation:") 
+                            print("\nStart Evaluation:") 
                             val_data_generator = data_iterator(new_reviews[val_idx], args.batch_size)
                             
                             val_total_loss = 0
@@ -194,7 +197,7 @@ def main(args):
                             val_summary_writer.add_summary(summary, model.global_step.eval())
                             val_summary_writer.flush()
 
-                        if model.global_step.eval() % args.save_checkpoint_steps:
+                        if model.global_step.eval() % args.save_checkpoint_steps == 0:
                             '''
                             Save if we evaluate for 3 times or  model performs good 
                             '''
@@ -218,27 +221,23 @@ if __name__ == "__main__":
     parser.add_argument('--summary_steps', default = 200, type=int, help="number of train steps before evaluation once")
     parser.add_argument('--model_dir', default = "tmp/", help="Directory to save model files")
     parser.add_argument('--use_gpu', default=True, type=bool, help="num of hidden units")
-
-    parser.add_argument('--batch_size', default=10, type=int, help= "assign batchsize for training and eval")
-    
-    parser.add_argument('--learning_rate', default=0.007,type=float, help= "learning rate for training")
     parser.add_argument('--dropout', default=0.7, type=float, help= "dropout rate")
-    parser.add_argument('--summary_steps', default = 200, type=int, help="number of train steps before evaluation once")
     parser.add_argument('--save_checkpoint_steps', default = 200, type=int, help="number of train steps before evaluation once")
-
-
-    parser.add_argument('--model_dir', default = "tmp/", help="Directory to save model files")
     parser.add_argument('--Train', default = True, help="training or not")
     parser.add_argument('--is_stacked', default = False, type=bool, help="using stack or sum for h layer")
-    parser.add_argument('--regularizer_parameter', default = 0.0001, type=float, help="Directory to save model files")
+    parser.add_argument('--num_basis', default = 3, type=int, help="using stack or sum for h layer")
+    
 
+    parser.add_argument('--regularizer_parameter', default = 0.0001, type=float, help="Directory to save model files")
+    parser.add_argument('--batch_size', default=10000, type=int, help= "assign batchsize for training and eval")
+    parser.add_argument('--learning_rate', default=0.007,type=float, help= "learning rate for training")
     parser.add_argument('--dim_user_raw', default=64, type=int, help="num of hidden units")
     parser.add_argument('--dim_item_raw', default=128, type=int, help="num of hidden units")
     parser.add_argument('--dim_user_conv', default=64, type=int, help="num of hidden units")
     parser.add_argument('--dim_item_conv', default=128, type=int, help="num of hidden units")
     parser.add_argument('--dim_user_embedding', default=128, type=int, help="num of hidden units")
     parser.add_argument('--dim_item_embedding', default=128, type=int, help="num of hidden units")
-    parser.add_argument('--continue_training', default = False, type = bool, help='continue from last time training or not')
+    parser.add_argument('--continue_training', default =0, type = int, help='continue from which timestamp training or not')
 
     args = parser.parse_args()
     #args = parser.parse_args(['--max_steps=50'])
