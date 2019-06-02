@@ -31,32 +31,9 @@ def main(args):
     adj_mat_list, user_norm, item_norm,\
                 u_features, v_features, new_reviews, miscellany,\
                 N, num_train, num_val, num_test, train_idx, val_idx, test_idx = preprocessing(file_dir, verbose=True, test= False)
-    placeholders = {
-            'user_id': tf.sparse_placeholder(tf.float64),
-            'item_id': tf.sparse_placeholder(tf.float64),
-            'labels': tf.placeholder(tf.int64, shape = (None,))
-            }
-    for star in range(5):
-        placeholders['item_neigh_conv{}'.format(star)] = tf.sparse_placeholder(tf.float64)
-        placeholders['user_neigh_conv{}'.format(star)] = tf.sparse_placeholder(tf.float64)
-
-
-
     item_type_dict = get_type_dict(v_features)
     user_type_dict = get_type_dict(u_features)
 
-    v_feature_placeholder_dict = {}
-    for k, v in item_type_dict.items():
-        if "categories" != k:
-            v_feature_placeholder_dict[k] = tf.placeholder(v, shape = (None,))
-    v_feature_placeholder_dict["categories"] = tf.sparse_placeholder(tf.string)
-    
-    u_feature_placeholder_dict = {}
-    for k, v in user_type_dict.items():
-        u_feature_placeholder_dict[k] = tf.placeholder(v, shape = (None,))
-
-    placeholders['u_features'] = u_feature_placeholder_dict
-    placeholders['v_features'] = v_feature_placeholder_dict
 
     item_feature_columns = get_item_feature_columns(miscellany['business_vocab_list'], item_type_dict)
     user_feature_columns = get_user_feature_columns(user_type_dict)
@@ -64,14 +41,7 @@ def main(args):
     additional_info = {}
     for name in ['adj_mat_list', 'user_norm', 'item_norm', 'v_features', 'u_features']: 
         exec("additional_info[{0!r}] = {0}".format(name))
-    
-    
-#     temp_item_feature_columns = item_feature_columns
-#     item_feature_columns =[]
-#     for feat_col in temp_item_feature_columns:
-#         if 'categories' not in feat_col.name:
-#             item_feature_columns.append(feat_col)
-    
+   
     model_params = tf.contrib.training.HParams(
     num_users = len(user_norm),
     num_items = len(item_norm),
@@ -88,10 +58,37 @@ def main(args):
     user_features_columns = user_feature_columns,
     item_features_columns = item_feature_columns)
     
-    
 
-    model = gcmc_model(placeholders, model_params)
 
+       
+    with tf.device(assign_to_device('/gpu:0'), ps_device='/cpu:0')):
+        #initialize placeholder
+        placeholders = {
+                'user_id': tf.sparse_placeholder(tf.float64),
+                'item_id': tf.sparse_placeholder(tf.float64),
+                'labels': tf.placeholder(tf.int64, shape = (None,)),
+                'training':tf.placeholder(tf.bool, shape= (,)) 
+                }
+        for star in range(5):
+            placeholders['item_neigh_conv{}'.format(star)] = tf.sparse_placeholder(tf.float64)
+            placeholders['user_neigh_conv{}'.format(star)] = tf.sparse_placeholder(tf.float64)
+
+        v_feature_placeholder_dict = {}
+        for k, v in item_type_dict.items():
+            if "categories" != k:
+                v_feature_placeholder_dict[k] = tf.placeholder(v, shape = (None,))
+        v_feature_placeholder_dict["categories"] = tf.sparse_placeholder(tf.string)
+        
+        u_feature_placeholder_dict = {}
+        for k, v in user_type_dict.items():
+            u_feature_placeholder_dict[k] = tf.placeholder(v, shape = (None,))
+
+        placeholders['u_features'] = u_feature_placeholder_dict
+        placeholders['v_features'] = v_feature_placeholder_dict
+ 
+            
+        model = gcmc_model(placeholders, model_params)
+        merged_summary = tf.summary.merge_all()
 
 
     with tf.Session() as sess:
@@ -99,8 +96,9 @@ def main(args):
             sess.run(tf.global_variables_initializer())
             sess.run(tf.tables_initializer()) 
             
-            #train_summary_writer = tf.summary.FileWriter(args.model_dir+'', sess.graph) 
-            #val_summary_writer = 
+            train_summary_writer = tf.summary.FileWriter(args.model_dir+'/train') 
+            val_summary_writer = tf.summary.FileWriter(args.model_dir+'/val') 
+
 
 
             for epoch in range(num_epoch):
@@ -115,6 +113,7 @@ def main(args):
                         train_reviews = next(train_data_generator)
                         train_count = len(train_reviews)
                         train_feed_dict = construct_feed_dict(placeholders,train_reviews ,additional_info ,model_params)
+                        train_feed_dict[placeholders['training']] = True
                         train_result =sess.run([model.training_op, model.loss, model.accuracy], train_feed_dict)
                         
                         
@@ -131,6 +130,7 @@ def main(args):
                                     val_reviews = next(val_data_generator)
                                     val_count = len(val_reviews)
                                     val_feed_dict = construct_feed_dict(placeholders,val_reviews ,additional_info ,model_params)
+                                    val_feed_dict[placeholders['training']] = False 
                                     val_result = sess.run([model.loss, model.accuracy], val_feed_dict)
                                     val_total_loss += val_result[0] * val_count
                                     val_total_accuracy += val_result[1] * val_count
@@ -141,9 +141,17 @@ def main(args):
 
                             except StopIteration:
                                 pass
-                            val_loss = total_loss/num_val
-                            val_accuracy = total_accuracy/num_val
-                        
+                            val_loss = val_total_loss/num_val
+                            val_accuracy = val_total_accuracy/num_val
+                            
+                            summary = sess.run(merged_summary, feed_dict=train_feed_dict)
+                            train_summary_writer.add_summary(summary, model.global_step.eval())
+                            train_summary_writer.flush()
+                            
+                            summary = sess.run(merged_summary, feed_dict=val_feed_dict)
+                            val_summary_writer.add_summary(summary, model.global_step.eval())
+                            val_summary_writer.flush()
+
                         #if save:
 
                             '''
