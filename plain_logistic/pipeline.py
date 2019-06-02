@@ -243,9 +243,6 @@ def get_input_fn(mode, params, **input_additional_info):
     """
     
     #input_additional_info
-    adj_mat_list = input_additional_info['adj_mat_list']
-    user_norm = input_additional_info['user_norm']
-    item_norm = input_additional_info['item_norm']
     new_reviews = input_additional_info['new_reviews']
     num_train = input_additional_info['num_train']
     num_val = input_additional_info['num_val']

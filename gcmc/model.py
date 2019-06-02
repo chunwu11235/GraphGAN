@@ -22,9 +22,7 @@ class Model:
         if not sess:
             raise AttributeError("TensorFlow session is not provided.")
         saver = tf.train.Saver()
-        save_path = saver.save(sess, '{}/{}/global_step{}.ckpt'.format(self.model_dir,
-                                                                       self.model_name,
-                                                                       self.global_step)
+        save_path = saver.save(sess, '{}/{}_{}.ckpt'.format(self.model_dir, self.model_name, self.global_step)
                                )
         print("Model is saved in file: %s" % save_path)
 
@@ -32,10 +30,7 @@ class Model:
         if not sess:
             raise AttributeError("TensorFlow session is not provided.")
         saver = tf.train.Saver()
-        save_path = saver.save(sess, '{}/{}/global_step{}.ckpt'.format(self.model_dir,
-                                                                       self.model_name,
-                                                                       global_step)
-                               )
+        save_path = saver.save(sess, '{}/{}_{}.ckpt'.format(self.model_dir, self.model_name, global_step))
         saver.restore(sess, save_path)
         print("Model restored from file: %s" % save_path)
 
@@ -251,10 +246,10 @@ class GCMC(Model):
         self.training_op = optimizer.minimize(self.loss, global_step=self.global_step)
 
 
-class BlinearLogistic(Model):
+class BlinearLogistics(Model):
     def __init__(self, placeholders, params):
         super().__init__(self, placeholders, params)
-        self.model_name = 'BilinearLogistic'
+        self.model_name = 'BilinearLogistics'
 
     def build(self, placeholders, params):
         # === pass model parameters ===

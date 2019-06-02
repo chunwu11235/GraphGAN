@@ -293,4 +293,87 @@ def construct_feed_dict(placeholders, cur_review, additional_info, params):
 
     result_dict[placeholders['labels']] =   cur_review[:,2]-1
     
-    return result_dict 
+    return result_dict
+
+
+def construct_feed_dict_2(placeholders, cur_review, additional_info, params):
+    user_id = cur_review[:, 0]
+    item_id = cur_review[:, 1]
+
+
+    item_dict = OrderedDict()
+    user_dict = OrderedDict()
+    item_id_count = 0
+    user_id_count = 0
+
+    item_indices_list = []
+    item_value_list = []
+
+    user_indices_list = []
+    user_value_list = []
+
+    # for star, adj_mat in enumerate(additional_info["adj_mat_list"]):
+    #     item_sparse = adj_mat[:, item_id]
+    #     user_sparse = adj_mat[user_id, :]
+    #
+    #     # item_neigh_id = item_sparse.getH().nonzero()[1]
+    #     # user_neigh_id = user_sparse.nonzero()[1]
+    #
+    #     # new_item_neigh_id = np.zeros(len(item_neigh_id))
+    #     # new_user_neigh_id = np.zeros(len(item_neigh_id))
+    #
+    #     # new_item_neigh_id, user_id_count = new_id_mapper(item_neigh_id, user_dict, user_id_count)
+    #     # new_user_neigh_id, item_id_count = new_id_mapper(user_neigh_id, item_dict, item_id_count)
+    #
+    #     item_neigh_num = item_sparse.sum(axis=0).A1
+    #     user_neigh_num = user_sparse.sum(axis=1).A1
+    #
+    #     item_row = np.repeat(np.arange(len(item_id)), item_neigh_num)
+    #
+    #     item_indices = np.stack([item_row, new_item_neigh_id], axis=1)
+    #     # left normalization
+    #     item_value = np.repeat(additional_info["item_norm"][item_id], item_neigh_num)
+    #
+    #     user_row = np.repeat(np.arange(len(user_id)), user_neigh_num)
+    #     user_indices = np.stack([user_row, new_user_neigh_id], axis=1)
+    #     # left normalization
+    #     user_value = np.repeat(additional_info["user_norm"][user_id], user_neigh_num)
+    #
+    #     item_indices_list.append(item_indices)
+    #     item_value_list.append(item_value)
+    #     user_indices_list.append(user_indices)
+    #     user_value_list.append(user_value)
+
+    new_user_id, user_id_count = new_id_mapper(user_id, user_dict, user_id_count)
+    new_item_id, item_id_count = new_id_mapper(item_id, item_dict, item_id_count)
+
+    result_dict = {}
+    for star in range(5):
+        result_dict[placeholders['item_neigh_conv{}'.format(star)]] = \
+            tf.SparseTensorValue(item_indices_list[star], item_value_list[star].astype(np.float64),
+                                 dense_shape=[len(item_id), user_id_count])
+        result_dict[placeholders['user_neigh_conv{}'.format(star)]] = \
+            tf.SparseTensorValue(user_indices_list[star], user_value_list[star].astype(np.float64),
+                                 dense_shape=[len(user_id), item_id_count])
+
+    user_indices = np.stack([np.arange(len(user_id)), new_user_id], axis=1)
+    user_value = np.ones(len(user_id))
+    item_indices = np.stack([np.arange(len(item_id)), new_item_id], axis=1)
+    item_value = np.ones(len(item_id))
+
+    result_dict[placeholders['user_id']] = tf.SparseTensorValue(user_indices, user_value.astype(np.float64),
+                                                                dense_shape=[len(user_id), user_id_count])
+    result_dict[placeholders['item_id']] = tf.SparseTensorValue(item_indices, item_value.astype(np.float64),
+                                                                dense_shape=[len(item_id), item_id_count])
+
+    v_tensor_dict = df2tensor(additional_info["v_features"], list(item_dict.keys()))
+    u_tensor_dict = df2tensor(additional_info["u_features"], list(user_dict.keys()))
+
+    for key in v_tensor_dict:
+        result_dict[placeholders['v_features'][key]] = v_tensor_dict[key]
+    for key in u_tensor_dict:
+        result_dict[placeholders['u_features'][key]] = u_tensor_dict[key]
+
+    result_dict[placeholders['labels']] = cur_review[:, 2] - 1
+
+    return result_dict
