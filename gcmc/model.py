@@ -388,6 +388,7 @@ class BlinearDecoder(Model):
         # training
         self.training_op = optimizer.minimize(self.loss, global_step=self.global_step)
 
+
 class LogisticsDecoder(Model):
     def __init__(self, placeholders, params):
         super().__init__(self, placeholders, params)
@@ -403,7 +404,6 @@ class LogisticsDecoder(Model):
         dim_user_embedding = params.dim_user_embedding
         dim_item_embedding = params.dim_item_embedding
 
-        num_basis = params.num_basis
         classes = params.classes
         dropout = params.dropout
         regularizer = tf.contrib.layers.l2_regularizer
