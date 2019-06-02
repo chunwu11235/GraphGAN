@@ -58,13 +58,15 @@ def main(args):
     num_items = len(item_norm),
     model_dir = args.model_dir,
     learning_rate=args.learning_rate,
-    dim_user_raw=10,
-    dim_item_raw=10,
-    dim_user_conv=10,
-    dim_item_conv=10,
-    dim_user_embedding=10,
-    dim_item_embedding=10,
+    dim_user_raw=args.dim_user_raw,
+    dim_item_raw=args.dim_item_raw,
+    dim_user_conv=args.dim_user_conv,
+    dim_item_conv=args.dim_item_conv,
+    dim_user_embedding=args.dim_user_embedding,
+    dim_item_embedding=args.dim_item_embedding,
+    regularizer_parameter= args.regularizer_parameter,
     classes=5,
+    is_stacked = args.is_stacked,
     dropout=args.dropout,
     user_features_columns = user_feature_columns,
     item_features_columns = item_feature_columns)
@@ -95,35 +97,39 @@ def main(args):
 
 
     #with tf.device('/gpu:0'):
-    with tf.device(assign_to_device('/gpu:{}'.format(0), ps_device='/cpu:0')):
-        #initialize placeholder
-        #placeholders = {
-        #        'user_id': tf.sparse_placeholder(tf.float64),
-        #        'item_id': tf.sparse_placeholder(tf.float64),
-        #        'labels': tf.placeholder(tf.int64, shape = (None,)),
-        #        'training':tf.placeholder(tf.bool) 
-        #        }
-        #for star in range(5):
-        #    placeholders['item_neigh_conv{}'.format(star)] = tf.sparse_placeholder(tf.float64)
-        #    placeholders['user_neigh_conv{}'.format(star)] = tf.sparse_placeholder(tf.float64)
+    if args.use_gpu:
+        with tf.device(assign_to_device('/gpu:{}'.format(0), ps_device='/cpu:0')):
+            #initialize placeholder
+            #placeholders = {
+            #        'user_id': tf.sparse_placeholder(tf.float64),
+            #        'item_id': tf.sparse_placeholder(tf.float64),
+            #        'labels': tf.placeholder(tf.int64, shape = (None,)),
+            #        'training':tf.placeholder(tf.bool) 
+            #        }
+            #for star in range(5):
+            #    placeholders['item_neigh_conv{}'.format(star)] = tf.sparse_placeholder(tf.float64)
+            #    placeholders['user_neigh_conv{}'.format(star)] = tf.sparse_placeholder(tf.float64)
 
-        #v_feature_placeholder_dict = {}
-        #for k, v in item_type_dict.items():
-        #    if "categories" != k:
-        #        v_feature_placeholder_dict[k] = tf.placeholder(v, shape = (None,))
-        #v_feature_placeholder_dict["categories"] = tf.sparse_placeholder(tf.string)
-        #
-        #u_feature_placeholder_dict = {}
-        #for k, v in user_type_dict.items():
-        #    u_feature_placeholder_dict[k] = tf.placeholder(v, shape = (None,))
+            #v_feature_placeholder_dict = {}
+            #for k, v in item_type_dict.items():
+            #    if "categories" != k:
+            #        v_feature_placeholder_dict[k] = tf.placeholder(v, shape = (None,))
+            #v_feature_placeholder_dict["categories"] = tf.sparse_placeholder(tf.string)
+            #
+            #u_feature_placeholder_dict = {}
+            #for k, v in user_type_dict.items():
+            #    u_feature_placeholder_dict[k] = tf.placeholder(v, shape = (None,))
 
-        #placeholders['u_features'] = u_feature_placeholder_dict
-        #placeholders['v_features'] = v_feature_placeholder_dict
- 
-        #    
-        model = gcmc_model(placeholders, model_params)
-        merged_summary = tf.summary.merge_all()
-
+            #placeholders['u_features'] = u_feature_placeholder_dict
+            #placeholders['v_features'] = v_feature_placeholder_dict
+     
+            #    
+            model = gcmc_model(placeholders, model_params)
+            merged_summary = tf.summary.merge_all()
+    else:
+            model = gcmc_model(placeholders, model_params)
+            merged_summary = tf.summary.merge_all()
+        
 
     with tf.Session(config=tf.ConfigProto(log_device_placement=True, allow_soft_placement=True)) as sess:
         if args.Train:
@@ -209,14 +215,23 @@ def main(args):
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument('--batch_size', default=1024, type=int, help= "assign batchsize for training and eval")
-    parser.add_argument('--learning_rate', default=0.001,type=float, help= "learning rate for training")
-    parser.add_argument('--dropout', default=0.2, type=float, help= "dropout rate")
+    parser.add_argument('--batch_size', default=10000, type=int, help= "assign batchsize for training and eval")
+    parser.add_argument('--learning_rate', default=0.005,type=float, help= "learning rate for training")
+    parser.add_argument('--dropout', default=0.7, type=float, help= "dropout rate")
     parser.add_argument('--summary_steps', default = 200, type=int, help="number of train steps before evaluation once")
     parser.add_argument('--model_dir', default = "tmp/", help="Directory to save model files")
     parser.add_argument('--Train', default = True, help="training or not")
+    parser.add_argument('--is_stacked', default = False, type=bool, help="Directory to save model files")
+    parser.add_argument('--regularizer_parameter', default = 0.0001, type=float, help="Directory to save model files")
     #parser.add_argument('--model_dir', default = "tmp/", help="Directory to save model files")
-    #parser.add_argument('--model_dir', default = "tmp/", help="Directory to save model files")
+
+    parser.add_argument('--dim_user_raw', default=64, type=int, help="num of hidden units")
+    parser.add_argument('--dim_item_raw', default=128, type=int, help="num of hidden units")
+    parser.add_argument('--dim_user_conv', default=64, type=int, help="num of hidden units")
+    parser.add_argument('--dim_item_conv', default=128, type=int, help="num of hidden units")
+    parser.add_argument('--dim_user_embedding', default=128, type=int, help="num of hidden units")
+    parser.add_argument('--dim_item_embedding', default=128, type=int, help="num of hidden units")
+    parser.add_argument('--use_gpu', default=True, type=bool, help="num of hidden units")
 
     args = parser.parse_args()
     #args = parser.parse_args(['--max_steps=50'])
