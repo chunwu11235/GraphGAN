@@ -93,12 +93,32 @@ class GCMC:
 
         # === layers at the 2nd level ===
         # batch norm
+        
+        f_user = tf.cast(f_user, tf.float32)
+        h_user = tf.cast(h_user, tf.float32)
+        f_item = tf.cast(f_item, tf.float32)
+        h_item = tf.cast(h_item, tf.float32)
+
+
         f_user = tf.contrib.layers.batch_norm(f_user,
                                      is_training=placeholders['training'],
                                      trainable=True)
         h_user = tf.contrib.layers.batch_norm(h_user,
                                      is_training=placeholders['training'],
                                      trainable=True)
+        f_item = tf.contrib.layers.batch_norm(f_item,
+                                     is_training=placeholders['training'],
+                                     trainable=True)
+        h_item = tf.contrib.layers.batch_norm(h_item,
+                                     is_training=placeholders['training'],
+                                     trainable=True)
+
+        f_user = tf.cast(f_user, tf.float64)
+        h_user = tf.cast(h_user, tf.float64)
+        f_item = tf.cast(f_item, tf.float64)
+        h_item = tf.cast(h_item, tf.float64)
+
+
 
         f_user = tf.layers.dense(f_user,
                                  units=params.dim_user_embedding,
@@ -114,13 +134,6 @@ class GCMC:
         user_embedding = tf.nn.relu(f_user + h_user)
 
         # batch norm
-        f_item = tf.contrib.layers.batch_norm(f_item,
-                                     is_training=placeholders['training'],
-                                     trainable=True)
-        h_item = tf.contrib.layers.batch_norm(h_item,
-                                     is_training=placeholders['training'],
-                                     trainable=True)
-
         f_item = tf.layers.dense(f_item,
                                  units=params.dim_item_embedding,
                                  activation=None,

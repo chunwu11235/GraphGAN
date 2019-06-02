@@ -22,6 +22,17 @@ import tensorflow as tf
 num_epoch = 10
 
 
+PS_OPS = ['Variable', 'VariableV2', 'AutoReloadVariable']
+def assign_to_device(device, ps_device='/cpu:0'):
+    def _assign(op):
+        node_def = op if isinstance(op, tf.NodeDef) else op.node_def
+        if node_def.op in PS_OPS:
+            return ps_device
+        else:
+            return device
+
+    return _assign
+
 
 def main(args):    
     tf.logging.set_verbosity(tf.logging.INFO)    
@@ -58,40 +69,63 @@ def main(args):
     user_features_columns = user_feature_columns,
     item_features_columns = item_feature_columns)
     
+    placeholders = {
+            'user_id': tf.sparse_placeholder(tf.float64),
+            'item_id': tf.sparse_placeholder(tf.float64),
+            'labels': tf.placeholder(tf.int64, shape = (None,)),
+            'training':tf.placeholder(tf.bool) 
+            }
+    for star in range(5):
+        placeholders['item_neigh_conv{}'.format(star)] = tf.sparse_placeholder(tf.float64)
+        placeholders['user_neigh_conv{}'.format(star)] = tf.sparse_placeholder(tf.float64)
 
+    v_feature_placeholder_dict = {}
+    for k, v in item_type_dict.items():
+        if "categories" != k:
+            v_feature_placeholder_dict[k] = tf.placeholder(v, shape = (None,))
+    v_feature_placeholder_dict["categories"] = tf.sparse_placeholder(tf.string)
+    
+    u_feature_placeholder_dict = {}
+    for k, v in user_type_dict.items():
+        u_feature_placeholder_dict[k] = tf.placeholder(v, shape = (None,))
 
-       
-    with tf.device(assign_to_device('/gpu:0'), ps_device='/cpu:0')):
-        #initialize placeholder
-        placeholders = {
-                'user_id': tf.sparse_placeholder(tf.float64),
-                'item_id': tf.sparse_placeholder(tf.float64),
-                'labels': tf.placeholder(tf.int64, shape = (None,)),
-                'training':tf.placeholder(tf.bool, shape= (,)) 
-                }
-        for star in range(5):
-            placeholders['item_neigh_conv{}'.format(star)] = tf.sparse_placeholder(tf.float64)
-            placeholders['user_neigh_conv{}'.format(star)] = tf.sparse_placeholder(tf.float64)
-
-        v_feature_placeholder_dict = {}
-        for k, v in item_type_dict.items():
-            if "categories" != k:
-                v_feature_placeholder_dict[k] = tf.placeholder(v, shape = (None,))
-        v_feature_placeholder_dict["categories"] = tf.sparse_placeholder(tf.string)
-        
-        u_feature_placeholder_dict = {}
-        for k, v in user_type_dict.items():
-            u_feature_placeholder_dict[k] = tf.placeholder(v, shape = (None,))
-
-        placeholders['u_features'] = u_feature_placeholder_dict
-        placeholders['v_features'] = v_feature_placeholder_dict
+    placeholders['u_features'] = u_feature_placeholder_dict
+    placeholders['v_features'] = v_feature_placeholder_dict
  
-            
+
+
+    #with tf.device('/gpu:0'):
+    with tf.device(assign_to_device('/gpu:{}'.format(0), ps_device='/cpu:0')):
+        #initialize placeholder
+        #placeholders = {
+        #        'user_id': tf.sparse_placeholder(tf.float64),
+        #        'item_id': tf.sparse_placeholder(tf.float64),
+        #        'labels': tf.placeholder(tf.int64, shape = (None,)),
+        #        'training':tf.placeholder(tf.bool) 
+        #        }
+        #for star in range(5):
+        #    placeholders['item_neigh_conv{}'.format(star)] = tf.sparse_placeholder(tf.float64)
+        #    placeholders['user_neigh_conv{}'.format(star)] = tf.sparse_placeholder(tf.float64)
+
+        #v_feature_placeholder_dict = {}
+        #for k, v in item_type_dict.items():
+        #    if "categories" != k:
+        #        v_feature_placeholder_dict[k] = tf.placeholder(v, shape = (None,))
+        #v_feature_placeholder_dict["categories"] = tf.sparse_placeholder(tf.string)
+        #
+        #u_feature_placeholder_dict = {}
+        #for k, v in user_type_dict.items():
+        #    u_feature_placeholder_dict[k] = tf.placeholder(v, shape = (None,))
+
+        #placeholders['u_features'] = u_feature_placeholder_dict
+        #placeholders['v_features'] = v_feature_placeholder_dict
+ 
+        #    
         model = gcmc_model(placeholders, model_params)
         merged_summary = tf.summary.merge_all()
 
 
-    with tf.Session() as sess:
+    with tf.Session(config=tf.ConfigProto(log_device_placement=True, allow_soft_placement=True)) as sess:
         if args.Train:
             sess.run(tf.global_variables_initializer())
             sess.run(tf.tables_initializer()) 
