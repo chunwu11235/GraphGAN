@@ -125,7 +125,7 @@ class GCMC(Model):
                                   name='item_conv_{}'.format(i)
                                   )
             h_item.append(h_v)
-
+            
         # is stacked?
         if is_stacked:
             h_user = tf.concat(h_user, axis=1)
