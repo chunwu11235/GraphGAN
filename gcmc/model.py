@@ -22,15 +22,17 @@ class Model:
         if not sess:
             raise AttributeError("TensorFlow session is not provided.")
         saver = tf.train.Saver()
-        save_path = saver.save(sess, '{}/{}_{}.ckpt'.format(self.model_dir, self.model_name, self.global_step)
-                               )
+        save_path = saver.save(sess, '{}/{}-{}.ckpt'.format(self.model_dir, self.model_name, self.global_step))
+        saver.save(sess, '{}/{}-latest'.format(self.model_dir, self.model_dir) )
         print("Model is saved in file: %s" % save_path)
 
-    def load(self, global_step, sess=None):
+    def load(self, sess=None, global_step=None):
         if not sess:
             raise AttributeError("TensorFlow session is not provided.")
         saver = tf.train.Saver()
-        save_path = saver.save(sess, '{}/{}_{}.ckpt'.format(self.model_dir, self.model_name, global_step))
+        save_path = '{}/{}-latest'.format(self.model_dir, self.model_name)
+        if global_step:
+            save_path = '{}/{}-{}.ckpt'.format(self.model_dir, self.model_name, global_step)
         saver.restore(sess, save_path)
         print("Model restored from file: %s" % save_path)
 
