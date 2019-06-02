@@ -51,9 +51,9 @@ def main(args):
         exec("additional_info[{0!r}] = {0}".format(name))
    
     model_params = tf.contrib.training.HParams(
-    num_users = len(user_norm),
-    num_items = len(item_norm),
-    model_dir = args.model_dir,
+    num_users=len(user_norm),
+    num_items=len(item_norm),
+    model_dir=args.model_dir,
     learning_rate=args.learning_rate,
     dim_user_raw=args.dim_user_raw,
     dim_item_raw=args.dim_item_raw,
@@ -63,6 +63,7 @@ def main(args):
     dim_item_embedding=args.dim_item_embedding,
     regularizer_parameter= args.regularizer_parameter,
     classes=5,
+    num_basis=args.num_basis,
     is_stacked = args.is_stacked,
     dropout=args.dropout,
     user_features_columns = user_feature_columns,
@@ -131,7 +132,12 @@ def main(args):
         if args.Train:
             sess.run(tf.global_variables_initializer())
             sess.run(tf.tables_initializer()) 
+   
             
+            if args.continue_training:
+                model.load(sess) 
+                print('Continue from previous checkout,current step is {}'.format(model.global_step.eval())) 
+
             train_summary_writer = tf.summary.FileWriter(args.model_dir+'/train') 
             val_summary_writer = tf.summary.FileWriter(args.model_dir+'/val') 
 
@@ -188,13 +194,11 @@ def main(args):
                             val_summary_writer.add_summary(summary, model.global_step.eval())
                             val_summary_writer.flush()
 
-                        #if save:
-
+                        if model.global_step.eval() % args.save_checkpoint_steps:
                             '''
                             Save if we evaluate for 3 times or  model performs good 
                             '''
-                        
-                        
+                            model.save(sess)
 
                         train_total_loss += train_result[1] * train_count
                         train_total_accuracy += train_result[2] * train_count
@@ -211,15 +215,22 @@ def main(args):
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument('--batch_size', default=10000, type=int, help= "assign batchsize for training and eval")
+    parser.add_argument('--summary_steps', default = 200, type=int, help="number of train steps before evaluation once")
+    parser.add_argument('--model_dir', default = "tmp/", help="Directory to save model files")
+    parser.add_argument('--use_gpu', default=True, type=bool, help="num of hidden units")
+
+    parser.add_argument('--batch_size', default=10, type=int, help= "assign batchsize for training and eval")
+    
     parser.add_argument('--learning_rate', default=0.007,type=float, help= "learning rate for training")
     parser.add_argument('--dropout', default=0.7, type=float, help= "dropout rate")
     parser.add_argument('--summary_steps', default = 200, type=int, help="number of train steps before evaluation once")
+    parser.add_argument('--save_checkpoint_steps', default = 200, type=int, help="number of train steps before evaluation once")
+
+
     parser.add_argument('--model_dir', default = "tmp/", help="Directory to save model files")
     parser.add_argument('--Train', default = True, help="training or not")
     parser.add_argument('--is_stacked', default = False, type=bool, help="using stack or sum for h layer")
     parser.add_argument('--regularizer_parameter', default = 0.0001, type=float, help="Directory to save model files")
-    #parser.add_argument('--model_dir', default = "tmp/", help="Directory to save model files")
 
     parser.add_argument('--dim_user_raw', default=64, type=int, help="num of hidden units")
     parser.add_argument('--dim_item_raw', default=128, type=int, help="num of hidden units")
@@ -227,7 +238,7 @@ if __name__ == "__main__":
     parser.add_argument('--dim_item_conv', default=128, type=int, help="num of hidden units")
     parser.add_argument('--dim_user_embedding', default=128, type=int, help="num of hidden units")
     parser.add_argument('--dim_item_embedding', default=128, type=int, help="num of hidden units")
-    parser.add_argument('--use_gpu', default=True, type=bool, help="num of hidden units")
+    parser.add_argument('--continue_training', default = False, type = bool, help='continue from last time training or not')
 
     args = parser.parse_args()
     #args = parser.parse_args(['--max_steps=50'])

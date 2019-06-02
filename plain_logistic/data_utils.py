@@ -137,7 +137,7 @@ def user_loader(file_name, user_id_dict):
             result = get_key_value_pair(line_contents)
             
             if result['user_id'] in user_id_dict.keys():
-                result.pop('friends', None)
+                result.pop("friends", None)
                 new_id = user_id_dict[result['user_id']]
                 result['elite'] = len(result['elite'].split(',')) if result['elite'] is not None else 0
                 result['user_id'] = new_id
