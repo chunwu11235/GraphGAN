@@ -5,7 +5,35 @@ from __future__ import print_function
 import tensorflow as tf
 
 
-model.py
+class Model:
+    def __init__(self, placeholders, params):
+        self.loss = 0
+        self.accuracy = 0
+        self.mse = 0
+        self.training_op = None
+        self.global_step = tf.Variable(0, trainable=False, name='global_step')
+        self.model_dir = params.model_dir
+        self.build(placeholders, params)
+
+    def build(self, placeholders, params):
+        raise NotImplementedError
+
+    def save(self, sess=None):
+        if not sess:
+            raise AttributeError("TensorFlow session is not provided.")
+        saver = tf.train.Saver()
+        save_path = saver.save(sess, '{}/{}_{}.ckpt'.format(self.model_dir, self.model_name, self.global_step)
+                               )
+        print("Model is saved in file: %s" % save_path)
+
+    def load(self, global_step, sess=None):
+        if not sess:
+            raise AttributeError("TensorFlow session is not provided.")
+        saver = tf.train.Saver()
+        save_path = saver.save(sess, '{}/{}_{}.ckpt'.format(self.model_dir, self.model_name, global_step))
+        saver.restore(sess, save_path)
+        print("Model restored from file: %s" % save_path)
+
 
 class GCMC(Model):
     def __init__(self, placeholders, params):
