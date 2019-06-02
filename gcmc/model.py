@@ -246,10 +246,10 @@ class GCMC(Model):
         self.training_op = optimizer.minimize(self.loss, global_step=self.global_step)
 
 
-class BlinearLogistics(Model):
+class BlinearDecoder(Model):
     def __init__(self, placeholders, params):
         super().__init__(self, placeholders, params)
-        self.model_name = 'BilinearLogistics'
+        self.model_name = 'BilinearDecoder'
 
     def build(self, placeholders, params):
         # === pass model parameters ===
@@ -388,8 +388,123 @@ class BlinearLogistics(Model):
         # training
         self.training_op = optimizer.minimize(self.loss, global_step=self.global_step)
 
+class LogisticsDecoder(Model):
+    def __init__(self, placeholders, params):
+        super().__init__(self, placeholders, params)
+        self.model_name = 'LogisticsDecoder'
 
+    def build(self, placeholders, params):
+        # === pass model parameters ===
+        user_features_columns = params.user_features_columns
+        item_features_columns = params.item_features_columns
 
+        dim_user_raw = params.dim_user_raw
+        dim_item_raw = params.dim_item_raw
+        dim_user_embedding = params.dim_user_embedding
+        dim_item_embedding = params.dim_item_embedding
 
+        num_basis = params.num_basis
+        classes = params.classes
+        dropout = params.dropout
+        regularizer = tf.contrib.layers.l2_regularizer
+        regularizer_parameter = params.regularizer_parameter
+        learning_rate = params.learning_rate
+        loss_function = tf.losses.sparse_softmax_cross_entropy
+        optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate)
+
+        # === input data ===
+        user_features_all = tf.feature_column.input_layer(placeholders['u_features'],
+                                                          user_features_columns)
+        item_features_all = tf.feature_column.input_layer(placeholders['v_features'],
+                                                          item_features_columns)
+        user_features_all = tf.cast(user_features_all, tf.float64)
+        item_features_all = tf.cast(item_features_all, tf.float64)
+
+        # get batch
+        user_features_batch = tf.sparse.matmul(placeholders['user_id'], user_features_all)
+        item_features_batch = tf.sparse.matmul(placeholders['item_id'], item_features_all)
+
+        # === dense layers at the first level ===
+        f_user = tf.layers.dense(user_features_batch,
+                                 units=dim_user_raw,
+                                 activation=None,
+                                 kernel_initializer=tf.glorot_normal_initializer(),
+                                 kernel_regularizer=regularizer(regularizer_parameter),
+                                 use_bias=True,
+                                 name='user_features')
+        f_item = tf.layers.dense(item_features_batch,
+                                 units=dim_item_raw,
+                                 activation=None,
+                                 kernel_initializer=tf.glorot_normal_initializer(),
+                                 kernel_regularizer=regularizer(regularizer_parameter),
+                                 use_bias=True,
+                                 name='item_features')
+
+        # batch norm
+        f_user = tf.cast(f_user, tf.float32)
+        f_item = tf.cast(f_item, tf.float32)
+
+        f_user = tf.contrib.layers.batch_norm(f_user,
+                                              is_training=placeholders['training'],
+                                              trainable=True)
+        f_item = tf.contrib.layers.batch_norm(f_item,
+                                              is_training=placeholders['training'],
+                                              trainable=True)
+
+        f_user = tf.cast(f_user, tf.float64)
+        f_item = tf.cast(f_item, tf.float64)
+
+        # activiation
+        f_user = tf.nn.relu(f_user)
+        f_item = tf.nn.relu(f_item)
+
+        # dropout
+        f_user = tf.layers.dropout(f_user, rate=dropout, training=placeholders['training'])
+        f_item = tf.layers.dropout(f_item, rate=dropout, training=placeholders['training'])
+
+        # === dense layers at the 2nd level ===
+        f_user = tf.layers.dense(f_user,
+                                 units=dim_user_embedding,
+                                 activation=None,
+                                 kernel_initializer=tf.glorot_normal_initializer(),
+                                 kernel_regularizer=regularizer(regularizer_parameter),
+                                 use_bias=False,
+                                 name='f_user')
+        f_item = tf.layers.dense(f_item,
+                                 units=dim_item_embedding,
+                                 activation=None,
+                                 kernel_initializer=tf.glorot_normal_initializer(),
+                                 kernel_regularizer=regularizer(regularizer_parameter),
+                                 use_bias=False,
+                                 name='f_item')
+
+        user_embedding = tf.nn.relu(f_user)
+        item_embedding = tf.nn.relu(f_item)
+
+        # === decoder ===
+        logits = tf.stack([user_embedding, item_embedding], axis=1)
+        logits = tf.layers.dense(logits,
+                                 units=classes,
+                                 activation=None,
+                                 kernel_initializer=tf.glorot_normal_initializer(),
+                                 kernel_regularizer=regularizer(regularizer_parameter),
+                                 use_bias=True,
+                                 name='decoder')
+
+        # predicted labels
+        predicted_classes = tf.argmax(logits, 1)
+
+        # === performance measure ===
+        self.loss = loss_function(labels=placeholders['labels'], logits=logits)
+        self.accuracy = tf.contrib.metrics.accuracy(labels=placeholders['labels'], predictions=predicted_classes)
+        self.mse = tf.losses.mean_squared_error(labels=placeholders['labels'], predictions=predicted_classes,
+                                                reduction=tf.Reduction.SUM_OVER_BATCH_SIZE)
+        # summary
+        tf.summary.scalar('loss', self.loss)
+        tf.summary.scalar('accuracy', self.accuracy)
+        tf.summary.scalar('mse', self.mse)
+
+        # training
+        self.training_op = optimizer.minimize(self.loss, global_step=self.global_step)
 
 
