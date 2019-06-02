@@ -11,24 +11,37 @@ class GCMC:
         self.accuracy = 0
         self.training_op = None
         self.global_step = tf.Variable(0, trainable=False, name='global_step')
-        self.trainable_vars = {}
 
         self.model_name = 'gcmc'
         self.model_dir = params.model_dir
         self.build(placeholders, params)
+        self.trainable_vars = {}
 
     def build(self, placeholders, params):
-        # pass parameters
-        num_basis = 3
+        # === pass model parameters ===
+        user_features_columns = params.user_features_columns
+        item_features_columns = params.item_features_columns
+
+        dim_user_raw = params.dim_user_raw
+        dim_item_raw = params.dim_item_raw
+        dim_user_conv = params.dim_user_conv
+        dim_item_conv = params.dim_item_conv
+        dim_user_embedding = params.dim_user_embedding
+        dim_item_embedding = params.dim_item_embedding
+
+        num_basis = params.num_basis
+        is_stacked = params.is_stacked
+        learning_rate = params.learning_rate
+        classes = params.classes
+        dropout = params.dropout
         regularizer = tf.contrib.layers.l2_regularizer
         regularizer_parameter = params.regularizer_parameter
 
-
-        # input data
+        # === input data ===
         user_features_all = tf.feature_column.input_layer(placeholders['u_features'],
-                                                          params.user_features_columns)
+                                                          user_features_columns)
         item_features_all = tf.feature_column.input_layer(placeholders['v_features'],
-                                                          params.item_features_columns)
+                                                          item_features_columns)
         user_features_all = tf.cast(user_features_all, tf.float64)
         item_features_all = tf.cast(item_features_all, tf.float64)
 
@@ -38,7 +51,7 @@ class GCMC:
 
         # get conv
         item_conv, user_conv = [], []
-        for star in range(params.classes):
+        for star in range(classes):
             item_conv.append(tf.sparse.matmul(placeholders['item_neigh_conv{}'.format(star)],
                                               user_features_all))
             user_conv.append(tf.sparse.matmul(placeholders['user_neigh_conv{}'.format(star)],
@@ -46,14 +59,14 @@ class GCMC:
 
         # === dense layers at the first level ===
         f_user = tf.layers.dense(user_features_batch,
-                                 units=params.dim_user_raw,
+                                 units=dim_user_raw,
                                  activation=None,
                                  kernel_initializer=tf.glorot_normal_initializer(),
                                  kernel_regularizer=regularizer(regularizer_parameter),
                                  use_bias=True,
                                  name='user_features')
         f_item = tf.layers.dense(item_features_batch,
-                                 units=params.dim_item_raw,
+                                 units=dim_item_raw,
                                  activation=None,
                                  kernel_initializer=tf.glorot_normal_initializer(),
                                  kernel_regularizer=regularizer(regularizer_parameter),
@@ -62,7 +75,7 @@ class GCMC:
         h_user = []
         for i, u in enumerate(user_conv):
             h_u = tf.layers.dense(u,
-                                  units=params.dim_user_conv,
+                                  units=dim_user_conv,
                                   activation=None,
                                   kernel_initializer=tf.glorot_normal_initializer(),
                                   kernel_regularizer=regularizer(regularizer_parameter),
@@ -74,7 +87,7 @@ class GCMC:
         h_item = []
         for i, v in enumerate(item_conv):
             h_v = tf.layers.dense(v,
-                                  units=params.dim_item_conv,
+                                  units=dim_item_conv,
                                   activation=None,
                                   kernel_initializer=tf.glorot_normal_initializer(),
                                   kernel_regularizer=regularizer(regularizer_parameter),
@@ -84,7 +97,7 @@ class GCMC:
             h_item.append(h_v)
 
         # is stacked?
-        if params.is_stacked:
+        if is_stacked:
             h_user = tf.concat(h_user, axis=1)
             h_item = tf.concat(h_item, axis=1)
         else:
@@ -122,34 +135,34 @@ class GCMC:
         h_item = tf.nn.relu(h_item)
 
         # dropout
-        f_user = tf.layers.dropout(f_user, rate=params.dropout, training=placeholders['training'])
-        f_item = tf.layers.dropout(f_item, rate=params.dropout, training=placeholders['training'])
-        h_user = tf.layers.dropout(h_user, rate=params.dropout, training=placeholders['training'])
-        h_item = tf.layers.dropout(h_item, rate=params.dropout, training=placeholders['training'])
+        f_user = tf.layers.dropout(f_user, rate=dropout, training=placeholders['training'])
+        f_item = tf.layers.dropout(f_item, rate=dropout, training=placeholders['training'])
+        h_user = tf.layers.dropout(h_user, rate=dropout, training=placeholders['training'])
+        h_item = tf.layers.dropout(h_item, rate=dropout, training=placeholders['training'])
 
         # === dense layers at the 2nd level ===
         f_user = tf.layers.dense(f_user,
-                                 units=params.dim_user_embedding,
+                                 units=dim_user_embedding,
                                  activation=None,
                                  kernel_initializer=tf.glorot_normal_initializer(),
                                  kernel_regularizer=regularizer(regularizer_parameter),
                                  use_bias=False,
                                  name='f_user')
         h_user = tf.layers.dense(h_user,
-                                 units=params.dim_user_embedding,
+                                 units=dim_user_embedding,
                                  kernel_initializer=tf.glorot_normal_initializer(),
                                  kernel_regularizer=regularizer(regularizer_parameter),
                                  use_bias=False,
                                  name='h_user')
         f_item = tf.layers.dense(f_item,
-                                 units=params.dim_item_embedding,
+                                 units=dim_item_embedding,
                                  activation=None,
                                  kernel_initializer=tf.glorot_normal_initializer(),
                                  kernel_regularizer=regularizer(regularizer_parameter),
                                  use_bias=False,
                                  name='f_item')
         h_item = tf.layers.dense(h_item,
-                                 units=params.dim_item_embedding,
+                                 units=dim_item_embedding,
                                  kernel_initializer=tf.glorot_normal_initializer(),
                                  kernel_regularizer=regularizer(regularizer_parameter),
                                  use_bias=False,
@@ -163,8 +176,8 @@ class GCMC:
         with tf.variable_scope('decoder'):
             for i in range(num_basis):
                 weights = tf.get_variable(name='decoder' + str(i),
-                                          shape=[params.dim_user_embedding,
-                                                 params.dim_item_embedding],
+                                          shape=[dim_user_embedding,
+                                                 dim_item_embedding],
                                           dtype=tf.float64,
                                           trainable=True,
                                           regularizer=regularizer(regularizer_parameter),
@@ -181,7 +194,7 @@ class GCMC:
                                                  )
 
         logits = []
-        for row in range(params.classes):
+        for row in range(classes):
             kernel = 0
             for k in range(num_basis):
                 kernel += weight_combination[row, k] * weights_decoder[k]
@@ -204,8 +217,8 @@ class GCMC:
         tf.summary.scalar('accuracy', self.accuracy)
 
         # training
-        optimizer = tf.train.AdamOptimizer(learning_rate=params.learning_rate)
-        self.training_op = optimizer.minimize(self.loss, global_step = self.global_step)
+        optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate)
+        self.training_op = optimizer.minimize(self.loss, global_step=self.global_step)
 
     def save(self, sess=None):
         if not sess:
