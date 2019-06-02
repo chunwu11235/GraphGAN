@@ -1,52 +1,9 @@
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
-
+import numpy as np
 import tensorflow as tf
 
-# TODO: params? what parameters do we need?
-
-#
-# # for testing
-# params = {'hidden units': [1, 1],
-#           'dropout': 0.1,
-#           'classes': 2,
-#           'learning rate': 0.001}
-#
-# user_features_all = tf.constant([[1, 0, 0],
-#                              [0, 1, 0],
-#                              [0, 0, 1]],
-#                             dtype=tf.float32)
-#
-# item_features_all = tf.constant([[1, 0, 0],
-#                              [0, 1, 0],
-#                              [0, 0, 1]],
-#                             dtype=tf.float32)
-# item_id = [0, 1]
-# user_id = [0, 1]
-#
-#
-# user_conv = [tf.constant([[1, 0, 0],
-#                           [0, 1, 0],
-#                           [0, 0, 1]],
-#                          dtype=tf.float32),
-#              tf.constant([[1, 0, 0],
-#                           [0, 1, 0],
-#                           [0, 0, 1]],
-#                          dtype=tf.float32)]
-#
-# item_conv = [tf.constant([[1, 0, 0],
-#                           [0, 1, 0],
-#                           [0, 0, 1]],
-#                          dtype=tf.float32),
-#              tf.constant([[1, 0, 0],
-#                           [0, 1, 0],
-#                           [0, 0, 1]],
-#                          dtype=tf.float32)]
-#
-# init_op = tf.global_variables_initializer()
-# sess = tf.Session()
-# sess.run(init_op)
 
 
 
@@ -68,9 +25,35 @@ def gcmc_model_fn(features, labels, mode, params):
         params.dim_item_embedding
         params.learning_rate
         params.dropout
+        params.l1_regularizer
+        params.l2_conv
     :return:
     '''
-
+    num_basis = 3
+    # pass params
+    
+    user_features_columns = params.user_features_columns
+    item_features_columns = params.item_features_columns
+    classes = params.classes
+    dim_user_raw = params.dim_user_raw
+    dim_item_raw = params.dim_item_raw
+    dim_user_conv = params.dim_user_conv
+    dim_item_conv = params.dim_item_conv
+    dim_user_embedding = params.dim_user_embedding
+    dim_item_embedding = params.dim_item_embedding
+    learning_rate = params.learning_rate
+#     l2_user_conv = params.l2_conv
+#     l2_item_conv = params.l2_conv
+#     l1_f_user = params.l1_embedding
+#     l1_h_user = params.l1_embedding
+#     l1_f_item = params.l1_embedding
+#     l1_h_item = params.l1_embedding
+#     l1_decoder = params.l1_decoder
+    dropout = params.dropout
+    
+    regularizer = tf.contrib.layers.l2_regularizer
+    regularizer_parameter = params.regularizer_parameter
+    
 
 
     training = False
@@ -81,15 +64,9 @@ def gcmc_model_fn(features, labels, mode, params):
     item_features_all = features['v_features']
     
     user_features_all = tf.feature_column.input_layer(user_features_all,
-                                                      params.user_features_columns)
+                                                      user_features_columns)
     item_features_all = tf.feature_column.input_layer(item_features_all,
-                                                      params.item_features_columns)
-
-    # batch norm
-    # user_features_all = tf.layers.batch_normalization(user_features_all,
-    #                                                   training=training)
-    # item_features_all = tf.layers.batch_normalization(item_features_all,
-    #                                                   training=training)
+                                                      item_features_columns)
 
     #user_features_all = tf.constant(1, shape=[9366, 18], dtype=tf.float64)
     #item_features_all = tf.constant(1, shape=[4618, 175], dtype=tf.float64)
@@ -104,7 +81,6 @@ def gcmc_model_fn(features, labels, mode, params):
     # print(item_features_all.shape)(2415, 175)
 
 
-
     """
     batch
     """
@@ -113,24 +89,24 @@ def gcmc_model_fn(features, labels, mode, params):
     item_features_batch = tf.sparse.matmul(features['item_id'],
                                            item_features_all)
 
-    user_features_batch = tf.layers.batch_normalization(user_features_batch,
-                                                        training=training)
-    item_features_batch = tf.layers.batch_normalization(item_features_batch,
-                                                        training=training)
+#     user_features_batch = tf.layers.batch_normalization(user_features_batch,
+#                                                         training=training)
+#     item_features_batch = tf.layers.batch_normalization(item_features_batch,
+#                                                         training=training)
 
     """convolution"""
     item_conv = []
     user_conv = []
-    for star in range(params.classes):
+    for star in range(classes):
         # TODO: node dropout
         v_conv = tf.sparse.matmul(features['item_neigh_conv{}'.format(star)],
                                   user_features_all)
-        v_conv = tf.layers.batch_normalization(v_conv, training=training)
+#         v_conv = tf.layers.batch_normalization(v_conv, training=training)
         item_conv.append(v_conv)
 
         u_conv = tf.sparse.matmul(features['user_neigh_conv{}'.format(star)],
                                   item_features_all)
-        u_conv = tf.layers.batch_normalization(u_conv, training=training)
+#         u_conv = tf.layers.batch_normalization(u_conv, training=training)
         user_conv.append(u_conv)
 
         # item_conv.append(tf.sparse.matmul(features['item_neigh_conv{}'.format(star)],
@@ -151,6 +127,8 @@ def gcmc_model_fn(features, labels, mode, params):
                              kernel_initializer=tf.glorot_normal_initializer(),
                              use_bias=True
                              )
+    f_user = tf.layers.batch_normalization(f_user, training=training)
+
     f_user = tf.layers.dropout(f_user, rate=params.dropout)
 
     # user convolutions
@@ -162,9 +140,10 @@ def gcmc_model_fn(features, labels, mode, params):
                               activation=tf.nn.relu,
                               kernel_initializer=tf.glorot_normal_initializer(),
                               # TODO:
-                              kernel_regularizer=tf.contrib.layers.l2_regularizer(0.5),
+                              kernel_regularizer=regularizer(regularizer_parameter),
                               use_bias=False
                               )
+        h_u = tf.layers.batch_normalization(h_u, training=training)
         h_u = tf.layers.dropout(h_u, rate=params.dropout)
         h_user.append(h_u)
     h_user = tf.concat(h_user, axis=1)
@@ -176,9 +155,10 @@ def gcmc_model_fn(features, labels, mode, params):
                              activation=tf.nn.relu,
                              kernel_initializer=tf.glorot_normal_initializer(),
                              # TODO:
-                             kernel_regularizer=tf.contrib.layers.l2_regularizer(0.5),
+                             kernel_regularizer=regularizer(regularizer_parameter),
                              use_bias=True
                              )
+    f_item = tf.layers.batch_normalization(f_item, training=training)
     f_item = tf.layers.dropout(f_item, rate=params.dropout)
 
     # item convolution
@@ -191,6 +171,7 @@ def gcmc_model_fn(features, labels, mode, params):
                               kernel_initializer=tf.glorot_normal_initializer(),
                               use_bias=False
                               )
+        h_v = tf.layers.batch_normalization(h_v, training=training)
         h_v = tf.layers.dropout(h_v, rate=params.dropout)
         h_item.append(h_v)
     h_item = tf.concat(h_item, axis=1)
@@ -205,14 +186,14 @@ def gcmc_model_fn(features, labels, mode, params):
                              activation=None,
                              kernel_initializer=tf.glorot_normal_initializer(),
                              # TODO: regularizer
-                             kernel_regularizer=tf.contrib.layers.l1_regularizer(0.5),
+                             kernel_regularizer=regularizer(regularizer_parameter),
                              use_bias=False
                              )
     h_user = tf.layers.dense(h_user,
                              units=params.dim_user_embedding,
                              kernel_initializer=tf.glorot_normal_initializer(),
                              # TODO: regularizer
-                             kernel_regularizer=tf.contrib.layers.l1_regularizer(0.5),
+                             kernel_regularizer=regularizer(regularizer_parameter),
                              use_bias=False
                              )
     user_embedding = tf.nn.relu(f_user + h_user)
@@ -222,14 +203,14 @@ def gcmc_model_fn(features, labels, mode, params):
                              activation=None,
                              kernel_initializer=tf.glorot_normal_initializer(),
                              # TODO: regularizer
-                             kernel_regularizer=tf.contrib.layers.l1_regularizer(0.5),
+                             kernel_regularizer=regularizer(regularizer_parameter),
                              use_bias=False
                              )
     h_item = tf.layers.dense(h_item,
                              units=params.dim_item_embedding,
                              kernel_initializer=tf.glorot_normal_initializer(),
                              # TODO: regularizer
-                             kernel_regularizer=tf.contrib.layers.l1_regularizer(0.5),
+                             kernel_regularizer=regularizer(regularizer_parameter),
                              use_bias=False
                              )
     item_embedding = tf.nn.relu(f_item + h_item)
@@ -239,30 +220,47 @@ def gcmc_model_fn(features, labels, mode, params):
     decoder
     """
 
-    item_embedding = tf.layers.batch_normalization(item_embedding,
-                                                   training=training)
+#     item_embedding = tf.layers.batch_normalization(item_embedding,
+#                                                    training=training)
 
-    user_embedding = tf.layers.batch_normalization(user_embedding,
-                                                   training=training)
+#     user_embedding = tf.layers.batch_normalization(user_embedding,
+#                                                    training=training)
 
     weights_decoder = []
     with tf.variable_scope('decoder'):
-        for i in range(params.classes):
+        for i in range(num_basis):
             weights = tf.get_variable(name='decoder' + str(i),
                                       shape=[params.dim_user_embedding,
                                              params.dim_item_embedding],
                                       dtype=tf.float64,
                                       trainable=True,
                                       # TODO: check
-                                      regularizer=tf.contrib.layers.l1_regularizer(1.0),
+                                      regularizer=regularizer(regularizer_parameter),
                                       initializer=tf.glorot_normal_initializer()
                                       )
             weights_decoder.append(weights)
+            
+            
+        #weight_combination = tf.Variable(tf.random.normal(np.array([5, num_basis]), dtype=tf.dtypes.float64), trainable=True)
+        weight_combination = tf.get_variable(name='weight_combination',
+                                      shape=[5,
+                                             num_basis],
+                                      dtype=tf.float64,
+                                      trainable=True,
+                                      # TODO: check
+                                      regularizer=None,
+                                      initializer=tf.glorot_normal_initializer()
+                                      )
 
+            
+    
+    
     logits = []
-    kernel = 0
-    for i, weight in enumerate(weights_decoder):
-        kernel += weight
+    for row in range(params.classes):
+        kernel=0 
+        for k in range(num_basis):
+            kernel+= weight_combination[row, k] * weights_decoder[k]
+        
         uQ = tf.matmul(user_embedding, kernel)
         uQv = tf.reduce_sum(tf.multiply(uQ, item_embedding), axis=1)
         logits.append(uQv)

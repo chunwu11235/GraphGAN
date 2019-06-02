@@ -223,10 +223,8 @@ def data_loading(file_dir, verbose = False, test= False):
         file_list = [file_dir + i + '.json' for i in ['business_test', 'review_test', 'user_test']]
     else:
         file_list = [file_dir + i + '.json' for i in ['business', 'review', 'user']]
-        
-       
-    data = pd.read_json(file_list[1], lines=True)
 
+    data = pd.read_json(file_list[1], lines=True)
     new_item_ids, item_id_dict, num_item = remapping(data['business_id'].values)
     new_user_ids, user_id_dict, num_user = remapping(data['user_id'].values)
     
@@ -252,12 +250,19 @@ def data_loading(file_dir, verbose = False, test= False):
     miscellany['business_vocab_list'] = business_vocab_list
     miscellany['col_mapper'] =  compute_col_mapper(miscellany['business_vocab_list'])
     
-    
     with open(output_file_names[3], 'wb') as handle:
         pickle.dump(miscellany, handle, protocol=pickle.HIGHEST_PROTOCOL) 
 
     return u_features, v_features, new_reviews, miscellany
 
+
+def compare_index(input_dir):
+    filelist = os.listdir(input_dir)
+    res = []
+    for f_name in filelist:
+        res.append(set( np.loadtxt('/home/FDSM_lhn/MCW/GraphGAN/gcmc/saved_data/'+f_name, delimiter = '\t')))
+    return res
+        
 
 if __name__ =='__main__':
     file_dir =  "/Users/Dreamland/Documents/University_of_Washington/STAT548/project/GraphGAN/yelp_dataset/"

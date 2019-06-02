@@ -54,11 +54,11 @@ def main(args):
     input_additional_info['col_mapper'] = miscellany['col_mapper']
 
     
-#     temp_item_feature_columns = item_feature_columns
-#     item_feature_columns =[]
-#     for feat_col in temp_item_feature_columns:
-#         if 'categories' not in feat_col.name:
-#             item_feature_columns.append(feat_col)
+    temp_item_feature_columns = item_feature_columns
+    item_feature_columns =[]
+    for feat_col in temp_item_feature_columns:
+        if 'categories' not in feat_col.name:
+            item_feature_columns.append(feat_col)
 
 
 

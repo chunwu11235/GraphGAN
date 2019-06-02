@@ -1,4 +1,5 @@
 import numpy as np
+import os
 from data_utils import data_loading
 from scipy.sparse import csr_matrix
 
@@ -193,6 +194,27 @@ def new_id_mapper(id_list, mapper, cur_count):
     return new_id_list, cur_count
     
 
+def save_out_rating_idx(rating_idx):
+    save_file_dir = '/home/FDSM_lhn/MCW/GraphGAN/gcmc/saved_data/'
+    
+    file_list = os.listdir(save_file_dir)
+    
+    k = 0
+
+    while True:
+        file_name = "rating_idx_{0}.dat".format(k)
+        flag = True
+        for i in file_list:
+            if file_name == i:
+                flag = False
+                break
+        if flag:
+            with open(save_file_dir+ file_name, 'wb') as f:
+                np.savetxt(f, rating_idx, delimiter= '\t')
+            break
+        k +=1
+    
+    
     
 def get_input_fn(mode, params, **input_additional_info):
     """Creates an input_fn that stores all the data in memory.
@@ -246,11 +268,15 @@ def get_input_fn(mode, params, **input_additional_info):
         # TODO: check this
         with tf.Session().as_default():
             idx = idx.eval().squeeze()
-
+            
+            
+            
         # idx = idx.eval().squeeze()
         
         size = len(idx)
         rating_idx = cur_idx[idx]
+        
+        save_out_rating_idx(rating_idx)
         
         features = {}
         miscellany_data = dict()
