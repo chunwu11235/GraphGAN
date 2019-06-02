@@ -18,11 +18,6 @@ class GCMC:
         self.build(placeholders, params)
 
     def build(self, placeholders, params):
-        """
-        :param placeholders:
-        :param params:
-        :return:
-        """
         user_features_all = tf.feature_column.input_layer(placeholders['u_features'],
                                                           params.user_features_columns)
         item_features_all = tf.feature_column.input_layer(placeholders['v_features'],
@@ -37,89 +32,94 @@ class GCMC:
         # get conv
         item_conv, user_conv = [], []
         for star in range(params.classes):
-            # TODO: node dropout
             item_conv.append(tf.sparse.matmul(placeholders['item_neigh_conv{}'.format(star)],
                                               user_features_all))
             user_conv.append(tf.sparse.matmul(placeholders['user_neigh_conv{}'.format(star)],
                                               item_features_all))
 
         # === layers at the first level ===
-        # user features
+        # input features
         f_user = tf.layers.dense(user_features_batch,
                                  units=params.dim_user_raw,
-                                 activation=tf.nn.relu,
+                                 activation=None,
                                  kernel_initializer=tf.glorot_normal_initializer(),
                                  use_bias=True,
                                  name='user_features')
-        f_user = tf.layers.dropout(f_user, rate=params.dropout, training=placeholders['training'])
-
-        # user convolution TODO: weight sharing
+        f_item = tf.layers.dense(item_features_batch,
+                                 units=params.dim_item_raw,
+                                 activation=None,
+                                 kernel_initializer=tf.glorot_normal_initializer(),
+                                 use_bias=True,
+                                 name='item_features')
+        # convolution
         h_user = []
         for i, u in enumerate(user_conv):
             h_u = tf.layers.dense(u,
                                   units=params.dim_user_conv,
-                                  activation=tf.nn.relu,
+                                  activation=None,
                                   kernel_initializer=tf.glorot_normal_initializer(),
                                   use_bias=False,
                                   name='user_conv_{}'.format(i)
                                   )
-            h_u = tf.layers.dropout(h_u, rate=params.dropout, training=placeholders['training'])
             h_user.append(h_u)
-        h_user = tf.concat(h_user, axis=1)
-        h_user = tf.layers.dropout(h_user, rate=params.dropout, training=placeholders['training'])
-        # item features
-        f_item = tf.layers.dense(item_features_batch,
-                                 units=params.dim_item_raw,
-                                 activation=tf.nn.relu,
-                                 kernel_initializer=tf.glorot_normal_initializer(),
-                                 use_bias=True,
-                                 name='item_features')
-        f_item = tf.layers.dropout(f_item, rate=params.dropout, training=placeholders['training'])
 
-        # item convolution TODO: weight sharing
         h_item = []
         for i, v in enumerate(item_conv):
             h_v = tf.layers.dense(v,
                                   units=params.dim_item_conv,
-                                  activation=tf.nn.relu,
+                                  activation=None,
                                   kernel_initializer=tf.glorot_normal_initializer(),
                                   use_bias=False,
                                   name='item_conv_{}'.format(i)
                                   )
-            h_v = tf.layers.dropout(h_v, rate=params.dropout, training=placeholders['training'])
             h_item.append(h_v)
-        h_item = tf.concat(h_item, axis=1)
-        h_item = tf.layers.dropout(h_item, rate=params.dropout, training=placeholders['training'])
 
-        # === layers at the 2nd level ===
+        # is stacked?
+        if params.is_stacked:
+            h_user = tf.concat(h_user, axis=1)
+            h_item = tf.concat(h_item, axis=1)
+        else:
+            h_user = tf.add_n(h_user)
+            h_item = tf.add_n(h_item)
+
         # batch norm
-        
         f_user = tf.cast(f_user, tf.float32)
         h_user = tf.cast(h_user, tf.float32)
         f_item = tf.cast(f_item, tf.float32)
         h_item = tf.cast(h_item, tf.float32)
 
-
         f_user = tf.contrib.layers.batch_norm(f_user,
-                                     is_training=placeholders['training'],
-                                     trainable=True)
+                                              is_training=placeholders['training'],
+                                              trainable=True)
         h_user = tf.contrib.layers.batch_norm(h_user,
-                                     is_training=placeholders['training'],
-                                     trainable=True)
+                                              is_training=placeholders['training'],
+                                              trainable=True)
         f_item = tf.contrib.layers.batch_norm(f_item,
-                                     is_training=placeholders['training'],
-                                     trainable=True)
+                                              is_training=placeholders['training'],
+                                              trainable=True)
         h_item = tf.contrib.layers.batch_norm(h_item,
-                                     is_training=placeholders['training'],
-                                     trainable=True)
+                                              is_training=placeholders['training'],
+                                              trainable=True)
 
         f_user = tf.cast(f_user, tf.float64)
         h_user = tf.cast(h_user, tf.float64)
         f_item = tf.cast(f_item, tf.float64)
         h_item = tf.cast(h_item, tf.float64)
 
+        # activiation
+        f_user = tf.nn.relu(f_user)
+        f_item = tf.nn.relu(f_item)
+        h_user = tf.nn.relu(h_user)
+        h_item = tf.nn.relu(h_item)
 
+        # dropout
+        f_user = tf.layers.dropout(f_user, rate=params.dropout, training=placeholders['training'])
+        f_item = tf.layers.dropout(f_item, rate=params.dropout, training=placeholders['training'])
+        h_user = tf.layers.dropout(h_user, rate=params.dropout, training=placeholders['training'])
+        h_item = tf.layers.dropout(h_item, rate=params.dropout, training=placeholders['training'])
 
+        # === layers at the 2nd level ===
+        # get graph embedding
         f_user = tf.layers.dense(f_user,
                                  units=params.dim_user_embedding,
                                  activation=None,
@@ -131,9 +131,6 @@ class GCMC:
                                  kernel_initializer=tf.glorot_normal_initializer(),
                                  use_bias=False,
                                  name='h_user')
-        user_embedding = tf.nn.relu(f_user + h_user)
-
-        # batch norm
         f_item = tf.layers.dense(f_item,
                                  units=params.dim_item_embedding,
                                  activation=None,
@@ -145,9 +142,12 @@ class GCMC:
                                  kernel_initializer=tf.glorot_normal_initializer(),
                                  use_bias=False,
                                  name='h_item')
+
+        user_embedding = tf.nn.relu(f_user + h_user)
         item_embedding = tf.nn.relu(f_item + h_item)
 
         # === decoder ===
+        # TODO fix this
         weights_decoder = []
         with tf.variable_scope('decoder'):
             for i in range(params.classes):
