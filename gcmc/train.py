@@ -9,20 +9,17 @@ from pipeline import preprocessing, get_item_feature_columns, get_user_feature_c
 from utils import data_iterator, progress_bar
 from gcmc_model import GCMC as gcmc_model
 
-
-
 import functools
 import sys
 import numpy as np
-
-
 import tensorflow as tf
+
 
 
 num_epoch = 10
 
-
 PS_OPS = ['Variable', 'VariableV2', 'AutoReloadVariable']
+
 def assign_to_device(device, ps_device='/cpu:0'):
     def _assign(op):
         node_def = op if isinstance(op, tf.NodeDef) else op.node_def
@@ -76,7 +73,7 @@ def main(args):
             'item_id': tf.sparse_placeholder(tf.float64),
             'labels': tf.placeholder(tf.int64, shape = (None,)),
             'training':tf.placeholder(tf.bool) 
-            }
+        }
     for star in range(5):
         placeholders['item_neigh_conv{}'.format(star)] = tf.sparse_placeholder(tf.float64)
         placeholders['user_neigh_conv{}'.format(star)] = tf.sparse_placeholder(tf.float64)
@@ -96,7 +93,6 @@ def main(args):
  
 
 
-    #with tf.device('/gpu:0'):
     if args.use_gpu:
         with tf.device(assign_to_device('/gpu:{}'.format(0), ps_device='/cpu:0')):
             #initialize placeholder
@@ -216,12 +212,12 @@ if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument('--batch_size', default=10000, type=int, help= "assign batchsize for training and eval")
-    parser.add_argument('--learning_rate', default=0.005,type=float, help= "learning rate for training")
+    parser.add_argument('--learning_rate', default=0.007,type=float, help= "learning rate for training")
     parser.add_argument('--dropout', default=0.7, type=float, help= "dropout rate")
     parser.add_argument('--summary_steps', default = 200, type=int, help="number of train steps before evaluation once")
     parser.add_argument('--model_dir', default = "tmp/", help="Directory to save model files")
     parser.add_argument('--Train', default = True, help="training or not")
-    parser.add_argument('--is_stacked', default = False, type=bool, help="Directory to save model files")
+    parser.add_argument('--is_stacked', default = False, type=bool, help="using stack or sum for h layer")
     parser.add_argument('--regularizer_parameter', default = 0.0001, type=float, help="Directory to save model files")
     #parser.add_argument('--model_dir', default = "tmp/", help="Directory to save model files")
 

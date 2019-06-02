@@ -59,6 +59,10 @@ def get_user_feature_columns(user_type_dict):
     return items_feature_columns
 
 def list2sparsetensor(list_feat):
+    '''
+    Turn list from pd.DataFrame.to_dict for embedding feature column 
+    '''
+    
     indices = []
     value = []
     max_count =0
@@ -82,41 +86,16 @@ def list2sparsetensor(list_feat):
     
     return tf.SparseTensorValue(indices, value, dense_shape = [len(list_feat), max_count])
    
-#def list2sparsetensor2(list_feat):
-#    parsed_example = []
-#    feature = {
-#            'categories':tf.VarLenFeature(tf.string)
-#            }
-#    for sub_list in list_feat:
-#        try:
-#            sub_list = [k.encode('utf-8') for k in sub_list]
-#        except:
-#            sub_list = [sub_list.encode('utf-8') ]
-#
-#        example = tf.train.Example(features=tf.train.Features(feature = {
-#            'categories':tf.train.Feature(bytes_list= tf.train.BytesList(value=sub_list))
-#            }))
-#        
-#        parsed_example.append(example.SerializeToString())
-#    result = tf.parse_example(parsed_example, feature)
-#    return result['categories']
-#
-
 def df2tensor(features, slice_list):
     
     item_datatypes = features.dtypes.iteritems()
     
     new_features = features.loc[slice_list]
     result_dict = new_features.to_dict(orient = 'list')
-    #col_mapper is only useful for item feature
     for k, v in item_datatypes:
         if k in ['categories'] :
             result_dict[k] = list2sparsetensor(result_dict[k])
-    #    if v == np.object or (v == np.float and k in ['stars', 'average_stars']):
-    #        result_dict[k] = result_dict[k], dtype = tf.string)
-    #    else:
-    #        result_dict[k] = tf.convert_to_tensor(np.array(result_dict[k]).astype(np.int64), dtype = tf.int64)
-    #
+    
     return result_dict
 
 
@@ -185,12 +164,6 @@ def preprocessing(file_dir, verbose = True ,test= False):
     u_features.fillna(0, inplace=True)
 
     #Note the categories part for item will still be list type inorder for the furthur slice processing
-
-    # return adj_mat_list, user_norm, item_norm,\
-    #         u_features, v_features, new_reviews, miscellany,\
-    #         N, num_train, num_val, num_test, train_idx, val_idx, test_idx
-
-    
     #This implementation slice after input  
     
     return adj_mat_list, user_norm, item_norm,\
