@@ -251,10 +251,6 @@ class GCMC(Model):
         self.training_op = optimizer.minimize(self.loss, global_step=self.global_step)
 
 
-
-
-
-
 class BlinearLogistic(Model):
     def __init__(self, placeholders, params):
         super().__init__(self, placeholders, params)
@@ -267,13 +263,10 @@ class BlinearLogistic(Model):
 
         dim_user_raw = params.dim_user_raw
         dim_item_raw = params.dim_item_raw
-        dim_user_conv = params.dim_user_conv
-        dim_item_conv = params.dim_item_conv
         dim_user_embedding = params.dim_user_embedding
         dim_item_embedding = params.dim_item_embedding
 
         num_basis = params.num_basis
-        is_stacked = params.is_stacked
         classes = params.classes
         dropout = params.dropout
         regularizer = tf.contrib.layers.l2_regularizer
@@ -331,8 +324,6 @@ class BlinearLogistic(Model):
         # dropout
         f_user = tf.layers.dropout(f_user, rate=dropout, training=placeholders['training'])
         f_item = tf.layers.dropout(f_item, rate=dropout, training=placeholders['training'])
-        h_user = tf.layers.dropout(h_user, rate=dropout, training=placeholders['training'])
-        h_item = tf.layers.dropout(h_item, rate=dropout, training=placeholders['training'])
 
         # === dense layers at the 2nd level ===
         f_user = tf.layers.dense(f_user,
@@ -342,12 +333,6 @@ class BlinearLogistic(Model):
                                  kernel_regularizer=regularizer(regularizer_parameter),
                                  use_bias=False,
                                  name='f_user')
-        h_user = tf.layers.dense(h_user,
-                                 units=dim_user_embedding,
-                                 kernel_initializer=tf.glorot_normal_initializer(),
-                                 kernel_regularizer=regularizer(regularizer_parameter),
-                                 use_bias=False,
-                                 name='h_user')
         f_item = tf.layers.dense(f_item,
                                  units=dim_item_embedding,
                                  activation=None,
@@ -355,15 +340,9 @@ class BlinearLogistic(Model):
                                  kernel_regularizer=regularizer(regularizer_parameter),
                                  use_bias=False,
                                  name='f_item')
-        h_item = tf.layers.dense(h_item,
-                                 units=dim_item_embedding,
-                                 kernel_initializer=tf.glorot_normal_initializer(),
-                                 kernel_regularizer=regularizer(regularizer_parameter),
-                                 use_bias=False,
-                                 name='h_item')
 
-        user_embedding = tf.nn.relu(f_user + h_user)
-        item_embedding = tf.nn.relu(f_item + h_item)
+        user_embedding = tf.nn.relu(f_user)
+        item_embedding = tf.nn.relu(f_item)
 
         # === decoder ===
         weights_decoder = []
