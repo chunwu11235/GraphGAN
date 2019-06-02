@@ -5,17 +5,45 @@ from __future__ import print_function
 import tensorflow as tf
 
 
-class GCMC:
+class Model:
     def __init__(self, placeholders, params):
         self.loss = 0
         self.accuracy = 0
+        self.mse = 0
         self.training_op = None
         self.global_step = tf.Variable(0, trainable=False, name='global_step')
-
-        self.model_name = 'gcmc'
         self.model_dir = params.model_dir
         self.build(placeholders, params)
-        self.trainable_vars = {}
+
+    def build(self, placeholders, params):
+        raise NotImplementedError
+
+    def save(self, sess=None):
+        if not sess:
+            raise AttributeError("TensorFlow session is not provided.")
+        saver = tf.train.Saver()
+        save_path = saver.save(sess, '{}/{}/global_step{}.ckpt'.format(self.model_dir,
+                                                                       self.model_name,
+                                                                       self.global_step)
+                               )
+        print("Model is saved in file: %s" % save_path)
+
+    def load(self, global_step, sess=None):
+        if not sess:
+            raise AttributeError("TensorFlow session is not provided.")
+        saver = tf.train.Saver()
+        save_path = saver.save(sess, '{}/{}/global_step{}.ckpt'.format(self.model_dir,
+                                                                       self.model_name,
+                                                                       global_step)
+                               )
+        saver.restore(sess, save_path)
+        print("Model restored from file: %s" % save_path)
+
+
+class GCMC(Model):
+    def __init__(self, placeholders, params):
+        super().__init__(self, placeholders, params)
+        self.model_name = 'gcmc'
 
     def build(self, placeholders, params):
         # === pass model parameters ===
@@ -31,11 +59,13 @@ class GCMC:
 
         num_basis = params.num_basis
         is_stacked = params.is_stacked
-        learning_rate = params.learning_rate
         classes = params.classes
         dropout = params.dropout
         regularizer = tf.contrib.layers.l2_regularizer
         regularizer_parameter = params.regularizer_parameter
+        learning_rate = params.learning_rate
+        loss_function = tf.losses.sparse_softmax_cross_entropy
+        optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate)
 
         # === input data ===
         user_features_all = tf.feature_column.input_layer(placeholders['u_features'],
@@ -208,40 +238,21 @@ class GCMC:
         predicted_classes = tf.argmax(logits, 1)
 
         # === performance measure ===
-        self.loss = tf.losses.sparse_softmax_cross_entropy(labels=placeholders['labels'], logits=logits)
-        self.accuracy = tf.contrib.metrics.accuracy(predictions=predicted_classes, labels=placeholders['labels'])
-        # self.mse = tf.metrics.mean_squared_error()
-
+        self.loss = loss_function(labels=placeholders['labels'], logits=logits)
+        self.accuracy = tf.contrib.metrics.accuracy(labels=placeholders['labels'], predictions=predicted_classes)
+        self.mse = tf.losses.mean_squared_error(labels=placeholders['labels'], predictions=predicted_classes,
+                                                reduction=tf.Reduction.SUM_OVER_BATCH_SIZE)
         # summary
         tf.summary.scalar('loss', self.loss)
         tf.summary.scalar('accuracy', self.accuracy)
+        tf.summary.scalar('mse', self.mse)
 
         # training
-        optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate)
         self.training_op = optimizer.minimize(self.loss, global_step=self.global_step)
 
-    def save(self, sess=None):
-        if not sess:
-            raise AttributeError("TensorFlow session is not provided.")
-        saver = tf.train.Saver()
-        save_path = saver.save(sess, '{}{}_{}.ckpt'.format(self.model_dir,
-                                                           self.model_name,
-                                                           self.global_step
-                                                           )
-                               )
-        print("Model is saved in file: %s" % save_path)
 
-    def load(self, global_step, sess=None):
-        if not sess:
-            raise AttributeError("TensorFlow session is not provided.")
-        saver = tf.train.Saver()
-        save_path = saver.save(sess, '{}{}_{}.ckpt'.format(self.model_dir,
-                                                           self.model_name,
-                                                           global_step
-                                                           )
-                               )
-        saver.restore(sess, save_path)
-        print("Model restored from file: %s" % save_path)
+
+
 
 
 
