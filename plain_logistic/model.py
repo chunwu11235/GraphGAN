@@ -37,7 +37,22 @@ class Model:
         print("\nModel restored from file: %s" % save_path)
 
 
+<<<<<<< HEAD
 class BlinearDecoder(Model):
+=======
+#    def save_performance(self, sess, text, mode):
+#
+#        if mode == 'train'
+#
+#        elif model == 'eval':
+
+
+
+
+
+
+class BilinearDecoder(Model):
+>>>>>>> a72cb9e957258aa99bc06145021676c9e2350db7
     def __init__(self, placeholders, params):
         super().__init__(placeholders, params)
         self.model_name = 'BilinearDecoder'
@@ -170,7 +185,7 @@ class BlinearDecoder(Model):
         self.loss = loss_function(labels=placeholders['labels'], logits=logits)
         self.accuracy = tf.contrib.metrics.accuracy(labels=placeholders['labels'], predictions=predicted_classes)
         self.mse = tf.losses.mean_squared_error(labels=placeholders['labels'], predictions=predicted_classes,
-                                                reduction=tf.Reduction.SUM_OVER_BATCH_SIZE)
+                                                reduction=tf.losses.Reduction.SUM_OVER_BATCH_SIZE)
         # summary
         tf.summary.scalar('loss', self.loss)
         tf.summary.scalar('accuracy', self.accuracy)
@@ -179,7 +194,10 @@ class BlinearDecoder(Model):
         # training
         self.training_op = optimizer.minimize(self.loss, global_step=self.global_step)
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> a72cb9e957258aa99bc06145021676c9e2350db7
 class LogisticDecoder(Model):
     def __init__(self, placeholders, params):
         super().__init__(placeholders, params)
@@ -273,7 +291,7 @@ class LogisticDecoder(Model):
         item_embedding = tf.nn.relu(f_item)
 
         # === decoder ===
-        logits = tf.stack([user_embedding, item_embedding], axis=1)
+        logits = tf.concat([user_embedding, item_embedding], axis=1)
         logits = tf.layers.dense(logits,
                                  units=classes,
                                  activation=None,
@@ -289,7 +307,7 @@ class LogisticDecoder(Model):
         self.loss = loss_function(labels=placeholders['labels'], logits=logits)
         self.accuracy = tf.contrib.metrics.accuracy(labels=placeholders['labels'], predictions=predicted_classes)
         self.mse = tf.losses.mean_squared_error(labels=placeholders['labels'], predictions=predicted_classes,
-                                                reduction=tf.Reduction.SUM_OVER_BATCH_SIZE)
+                                                reduction=tf.losses.Reduction.SUM_OVER_BATCH_SIZE)
         # summary
         tf.summary.scalar('loss', self.loss)
         tf.summary.scalar('accuracy', self.accuracy)
