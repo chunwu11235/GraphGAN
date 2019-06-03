@@ -181,7 +181,7 @@ def construct_feed_dict(placeholders, cur_review, additional_info, params):
     item_indices = np.stack([np.arange(len(item_id)), new_item_id], axis = 1)
     item_value = np.ones(len(item_id))
     
-    
+    result_dict = {} 
     result_dict[placeholders['user_id']]= tf.SparseTensorValue(user_indices, user_value.astype(np.float64), dense_shape = [len(user_id), user_id_count])
     result_dict[placeholders['item_id']]= tf.SparseTensorValue(item_indices, item_value.astype(np.float64), dense_shape = [len(item_id), item_id_count])
     
