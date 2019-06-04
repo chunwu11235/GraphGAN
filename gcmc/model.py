@@ -60,9 +60,17 @@ class GCMC(Model):
         dropout = params.dropout
         regularizer = tf.contrib.layers.l2_regularizer
         regularizer_parameter = params.regularizer_parameter
-        learning_rate = params.learning_rate
         loss_function = tf.losses.sparse_softmax_cross_entropy
-        optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate)
+        
+        # === optimization ===
+        # tune decay_steps
+        decay_steps = 1000
+        learning_rate = tf.train.exponential_decay(learning_rate=params.learning_rate, global_step=self.global_step, decay_steps=decay_steps, 0.96, staircase=True)
+
+        if params.is_Adam:
+            optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate)
+        else:
+            optimizer = tf.train.MomentumOptimizer(learning_rate=learning_rate)
 
         # === input data ===
         user_features_all = tf.feature_column.input_layer(placeholders['u_features'],
