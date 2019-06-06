@@ -235,7 +235,11 @@ def main(args):
                     val_total_accuracy += val_result[1] * val_count
                     val_total += val_count 
                     val_total_mse += val_result[2] * val_count
+<<<<<<< HEAD
                     progress_bar(val_total, num_test, 'Loss: %.3f | Acc: %.3f%% (%d/%d) | Mse: %.3f' \
+=======
+                    progress_bar(val_total, num_val, 'Loss: %.3f | Acc: %.3f%% (%d/%d) | Mse: %.3f' \
+>>>>>>> d4c4a85836ffd852bdf1b800d73e13e6733d7d0b
                             % (val_total_loss/val_total, 100.*val_total_accuracy/val_total, val_total_accuracy, val_total, val_total_mse/val_total))
             except StopIteration:
                 pass
