@@ -209,7 +209,29 @@ def main(args):
                     pass
 
         else:
-            pass
+            model.load(sess, args.load_version)
+            print('Test from {} checkout point'.format(model.global_step.eval())) 
+            val_data_generator = data_iterator(new_reviews[test_idx], args.batch_size)
+                            
+            val_total_loss = 0
+            val_total_accuracy = 0
+            val_total = 0
+            val_total_mse = 0 
+            try:
+                while True:
+                    val_reviews = next(val_data_generator)
+                    val_count = len(val_reviews)
+                    val_feed_dict = construct_feed_dict(placeholders,val_reviews ,additional_info ,model_params)
+                    val_feed_dict[placeholders['training']] = False 
+                    val_result = sess.run([model.loss, model.accuracy, model.mse], val_feed_dict)
+                    val_total_loss += val_result[0] * val_count
+                    val_total_accuracy += val_result[1] * val_count
+                    val_total += val_count 
+                    val_total_mse += val_result[2] * val_count
+                    progress_bar(val_total, num_val, 'Loss: %.3f | Acc: %.3f%% (%d/%d) | Mse: %.3f' \
+                            % (val_total_loss/val_total, 100.*val_total_accuracy/val_total, val_total_accuracy, val_total, val_total_mse/val_total))
+            except StopIteration:
+                pass
     
     
 if __name__ == "__main__":
@@ -221,6 +243,8 @@ if __name__ == "__main__":
     parser.add_argument('--dropout', default=0.7, type=float, help= "dropout rate")
     parser.add_argument('--save_checkpoint_steps', default = 200, type=int, help="number of train steps before evaluation once")
     parser.add_argument('--Train', default = True, help="training or not")
+    parser.add_argument('--load_version', default = 1234,type=int,  help="Model version for Testing")
+
     parser.add_argument('--is_stacked', default = False, type=bool, help="using stack or sum for h layer")
     parser.add_argument('--num_basis', default = 3, type=int, help="using stack or sum for h layer")
     parser.add_argument('--bilinear', default = False, type= bool, help="using stack or sum for h layer")
