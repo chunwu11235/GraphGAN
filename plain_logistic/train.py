@@ -126,19 +126,16 @@ def main(args):
         
 
     with tf.Session(config=tf.ConfigProto(log_device_placement=False, allow_soft_placement=True)) as sess:
+        sess.run(tf.global_variables_initializer())
+        sess.run(tf.tables_initializer()) 
+        
         if args.Train:
-            sess.run(tf.global_variables_initializer())
-            sess.run(tf.tables_initializer()) 
-   
-            
             if args.continue_training:
                 model.load(sess) 
                 print('Continue from previous checkout,current step is {}'.format(model.global_step.eval())) 
 
             train_summary_writer = tf.summary.FileWriter(args.model_dir+'/train') 
             val_summary_writer = tf.summary.FileWriter(args.model_dir+'/val') 
-
-
 
             for epoch in range(num_epoch):
                 print("This is epoch {}".format(epoch))
@@ -242,7 +239,7 @@ if __name__ == "__main__":
     parser.add_argument('--use_gpu', default=False, type=bool, help="num of hidden units")
     parser.add_argument('--dropout', default=0.7, type=float, help= "dropout rate")
     parser.add_argument('--save_checkpoint_steps', default = 200, type=int, help="number of train steps before evaluation once")
-    parser.add_argument('--Train', default = True, help="training or not")
+    parser.add_argument('--Train', action = 'store_false', help="training or not")
     parser.add_argument('--load_version', default = 1234,type=int,  help="Model version for Testing")
 
     parser.add_argument('--is_stacked', default = False, type=bool, help="using stack or sum for h layer")

@@ -132,11 +132,11 @@ def main(args):
         
 
     with tf.Session(config=tf.ConfigProto(log_device_placement=False, allow_soft_placement=True)) as sess:
+        sess.run(tf.global_variables_initializer())
+        sess.run(tf.tables_initializer()) 
+        
         if args.Train:
-            sess.run(tf.global_variables_initializer())
-            sess.run(tf.tables_initializer()) 
-   
-            
+                        
             if args.continue_training:
                 model.load(sess) 
                 print('Continue from previous checkout,current step is {}'.format(model.global_step.eval())) 
@@ -235,7 +235,11 @@ def main(args):
                     val_total_accuracy += val_result[1] * val_count
                     val_total += val_count 
                     val_total_mse += val_result[2] * val_count
+<<<<<<< HEAD
+                    progress_bar(val_total, num_test, 'Loss: %.3f | Acc: %.3f%% (%d/%d) | Mse: %.3f' \
+=======
                     progress_bar(val_total, num_val, 'Loss: %.3f | Acc: %.3f%% (%d/%d) | Mse: %.3f' \
+>>>>>>> d4c4a85836ffd852bdf1b800d73e13e6733d7d0b
                             % (val_total_loss/val_total, 100.*val_total_accuracy/val_total, val_total_accuracy, val_total, val_total_mse/val_total))
             except StopIteration:
                 pass
@@ -251,7 +255,7 @@ if __name__ == "__main__":
     parser.add_argument('--use_gpu', action='store_true', help="num of hidden units")
     parser.add_argument('--dropout', default=0.7, type=float, help= "dropout rate")
     parser.add_argument('--save_checkpoint_steps', default = 200, type=int, help="number of train steps before evaluation once")
-    parser.add_argument('--Train', default = True, help="training or not")
+    parser.add_argument('--Train', action='store_false', help="training or not")
     parser.add_argument('--load_version', default = 1234,type=int,  help="Model version for Testing")
 
     parser.add_argument('--is_stacked', action='store_true', help="using stack or sum for h layer")
