@@ -1,5 +1,5 @@
 import os
-#os.environ['CUDA_VISIBLE_DEVICES'] = '0'
+os.environ['CUDA_VISIBLE_DEVICES'] = ''
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import logging
 #tf.get_logger().setLevel(logging.ERROR)
@@ -38,7 +38,7 @@ def main(args):
     #file_dir = 'yelp_dataset/'
     adj_mat_list, user_norm, item_norm,\
                 u_features, v_features, new_reviews, miscellany,\
-                N, num_train, num_val, num_test, train_idx, val_idx, test_idx = preprocessing(file_dir, verbose=True, test= False)
+                N, num_train, num_val, num_test, train_idx, val_idx, test_idx = preprocessing(file_dir, seed=129,verbose=True, test= False)
     item_type_dict = get_type_dict(v_features)
     user_type_dict = get_type_dict(u_features)
 
@@ -62,7 +62,10 @@ def main(args):
     dim_user_embedding=args.dim_user_embedding,
     dim_item_embedding=args.dim_item_embedding,
     regularizer_parameter= args.regularizer_parameter,
+    is_Adam= args.is_Adam,
     classes=5,
+    num_train = num_train,
+    batch_size = args.batch_size,
     num_basis=args.num_basis,
     is_stacked = args.is_stacked,
     dropout=args.dropout,
@@ -135,10 +138,7 @@ def main(args):
    
             
             if args.continue_training:
-                if args.continue_training == -1:
-                    model.load(sess) 
-                else: 
-                    model.load(sess, args.continue_training)
+                model.load(sess) 
                 print('Continue from previous checkout,current step is {}'.format(model.global_step.eval())) 
 
             train_summary_writer = tf.summary.FileWriter(args.model_dir+'/train') 
@@ -152,14 +152,15 @@ def main(args):
                 train_total_loss = 0
                 train_total_accuracy = 0
                 train_total = 0
-                             
+                train_total_mse = 0
+
                 try:
                     while True:
                         train_reviews = next(train_data_generator)
                         train_count = len(train_reviews)
                         train_feed_dict = construct_feed_dict(placeholders,train_reviews ,additional_info ,model_params)
                         train_feed_dict[placeholders['training']] = True
-                        train_result =sess.run([model.training_op, model.loss, model.accuracy], train_feed_dict)
+                        train_result =sess.run([model.training_op, model.loss, model.accuracy, model.mse], train_feed_dict)
                         
                         
                         if model.global_step.eval() % args.summary_steps == 0:
@@ -169,19 +170,21 @@ def main(args):
                             val_total_loss = 0
                             val_total_accuracy = 0
                             val_total = 0
-                             
+                            val_total_mse = 0 
                             try:
                                 while True:
                                     val_reviews = next(val_data_generator)
                                     val_count = len(val_reviews)
                                     val_feed_dict = construct_feed_dict(placeholders,val_reviews ,additional_info ,model_params)
                                     val_feed_dict[placeholders['training']] = False 
-                                    val_result = sess.run([model.loss, model.accuracy], val_feed_dict)
+                                    val_result = sess.run([model.loss, model.accuracy, model.mse], val_feed_dict)
                                     val_total_loss += val_result[0] * val_count
                                     val_total_accuracy += val_result[1] * val_count
                                     val_total += val_count 
-                                    progress_bar(val_total, num_val, 'Loss: %.3f | Acc: %.3f%% (%d/%d)' \
-                                            % (val_total_loss/val_total, 100.*val_total_accuracy/val_total, val_total_accuracy, val_total))
+                                    val_total_mse += val_result[2] * val_count
+                                    #print("Evaluation loss will be : ", val_result[0])
+                                    progress_bar(val_total, num_val, 'Loss: %.3f | Acc: %.3f%% (%d/%d) | Mse: %.3f' \
+                                            % (val_total_loss/val_total, 100.*val_total_accuracy/val_total, val_total_accuracy, val_total, val_total_mse/val_total))
 
 
                             except StopIteration:
@@ -205,14 +208,39 @@ def main(args):
 
                         train_total_loss += train_result[1] * train_count
                         train_total_accuracy += train_result[2] * train_count
+                        train_total_mse += train_result[3] * train_count
                         train_total += train_count 
-                        progress_bar(train_total, num_train, 'Loss: %.3f | Acc: %.3f%% (%d/%d)' \
-                                % (train_total_loss/train_total, 100.*train_total_accuracy/train_total, train_total_accuracy, train_total))
+                        progress_bar(train_total, num_train, 'Loss: %.3f | Acc: %.3f%% (%d/%d) | Mse %.3f' \
+                                % (train_total_loss/train_total, 100.*train_total_accuracy/train_total, train_total_accuracy, train_total, train_total_mse/train_total))
                 except StopIteration:
                     pass
 
         else:
-            pass
+            model.load(sess, args.load_version)
+            print('Test from {} checkout point'.format(model.global_step.eval())) 
+            val_data_generator = data_iterator(new_reviews[test_idx], args.batch_size)
+                            
+            val_total_loss = 0
+            val_total_accuracy = 0
+            val_total = 0
+            val_total_mse = 0 
+            try:
+                while True:
+                    val_reviews = next(val_data_generator)
+                    val_count = len(val_reviews)
+                    val_feed_dict = construct_feed_dict(placeholders,val_reviews ,additional_info ,model_params)
+                    val_feed_dict[placeholders['training']] = False 
+                    val_result = sess.run([model.loss, model.accuracy, model.mse], val_feed_dict)
+                    val_total_loss += val_result[0] * val_count
+                    val_total_accuracy += val_result[1] * val_count
+                    val_total += val_count 
+                    val_total_mse += val_result[2] * val_count
+                    progress_bar(val_total, num_val, 'Loss: %.3f | Acc: %.3f%% (%d/%d) | Mse: %.3f' \
+                            % (val_total_loss/val_total, 100.*val_total_accuracy/val_total, val_total_accuracy, val_total, val_total_mse/val_total))
+            except StopIteration:
+                pass
+
+
     
     
 if __name__ == "__main__":
@@ -220,14 +248,16 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--summary_steps', default = 200, type=int, help="number of train steps before evaluation once")
     parser.add_argument('--model_dir', default = "tmp/", help="Directory to save model files")
-    parser.add_argument('--use_gpu', default=True, type=bool, help="num of hidden units")
+    parser.add_argument('--use_gpu', action='store_true', help="num of hidden units")
     parser.add_argument('--dropout', default=0.7, type=float, help= "dropout rate")
     parser.add_argument('--save_checkpoint_steps', default = 200, type=int, help="number of train steps before evaluation once")
     parser.add_argument('--Train', default = True, help="training or not")
-    parser.add_argument('--is_stacked', default = False, type=bool, help="using stack or sum for h layer")
-    parser.add_argument('--num_basis', default = 3, type=int, help="using stack or sum for h layer")
-    
+    parser.add_argument('--load_version', default = 1234,type=int,  help="Model version for Testing")
 
+    parser.add_argument('--is_stacked', action='store_true', help="using stack or sum for h layer")
+    parser.add_argument('--num_basis', default = 3, type=int, help="using stack or sum for h layer")
+   
+    parser.add_argument('--is_Adam', action='store_false', help='which optimizer')
     parser.add_argument('--regularizer_parameter', default = 0.0001, type=float, help="Directory to save model files")
     parser.add_argument('--batch_size', default=10000, type=int, help= "assign batchsize for training and eval")
     parser.add_argument('--learning_rate', default=0.007,type=float, help= "learning rate for training")

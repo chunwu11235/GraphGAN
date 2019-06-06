@@ -37,9 +37,6 @@ class Model:
         print("\nModel restored from file: %s" % save_path)
 
 
-<<<<<<< HEAD
-class BlinearDecoder(Model):
-=======
 #    def save_performance(self, sess, text, mode):
 #
 #        if mode == 'train'
@@ -52,7 +49,6 @@ class BlinearDecoder(Model):
 
 
 class BilinearDecoder(Model):
->>>>>>> a72cb9e957258aa99bc06145021676c9e2350db7
     def __init__(self, placeholders, params):
         super().__init__(placeholders, params)
         self.model_name = 'BilinearDecoder'
@@ -194,10 +190,6 @@ class BilinearDecoder(Model):
         # training
         self.training_op = optimizer.minimize(self.loss, global_step=self.global_step)
 
-<<<<<<< HEAD
-
-=======
->>>>>>> a72cb9e957258aa99bc06145021676c9e2350db7
 class LogisticDecoder(Model):
     def __init__(self, placeholders, params):
         super().__init__(placeholders, params)

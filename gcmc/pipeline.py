@@ -99,14 +99,14 @@ def df2tensor(features, slice_list):
     return result_dict
 
 
-def create_trainvaltest_split(N, verbose):
+def create_trainvaltest_split(N, verbose, seed=129):
     """
     we have 6million links total
     
     """
     
     all_idx = np.arange(N)
-    np.random.seed(129)
+    np.random.seed(seed)
     np.random.shuffle(all_idx)
     test_prop = 0.1
     val_prop = 0.05
@@ -124,14 +124,14 @@ def create_trainvaltest_split(N, verbose):
 
 
 
-def preprocessing(file_dir, verbose = True ,test= False):
+def preprocessing(file_dir, seed=129,verbose = True ,test= False):
 
     u_features, v_features, new_reviews, miscellany = data_loading(file_dir, verbose = verbose, test = test)
     N = new_reviews.shape[0]
     num_item = miscellany['num_item']
     num_user = miscellany['num_user']
     
-    num_train, num_val, num_test, train_idx, val_idx, test_idx = create_trainvaltest_split(N, verbose= verbose)
+    num_train, num_val, num_test, train_idx, val_idx, test_idx = create_trainvaltest_split(N, seed=seed,verbose= verbose)
     
     train_reviews = new_reviews[train_idx]
     adj_mat = csr_matrix((train_reviews[:,2], (train_reviews[:,0], train_reviews[:,1])), shape = (num_user, num_item))
