@@ -1,2 +1,2 @@
 # GraphGAN
-CSE 547 Final Project
+UW CSE 547 Machine Learning for Big Data Final Project
