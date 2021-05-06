@@ -1,9 +1,0 @@
-
-
-print('MCW')
-
-
-print('print')
-
-
-
